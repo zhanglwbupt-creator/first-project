@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>背单词 - 百词斩风格UI原型</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: #f8f9fa;
+            color: #2d3748;
+            line-height: 1.6;
+        }
+
+        /* 手机框架 */
+        .phone-frame {
+            max-width: 414px;
+            margin: 0 auto;
+            background: #fff;
+            min-height: 100vh;
+            box-shadow: 0 0 30px rgba(0,0,0,0.15);
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* 页面容器 */
+        .page {
+            display: none;
+            min-height: 100vh;
+            padding-bottom: 70px;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        /* 渐变背景头部 */
+        .gradient-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 32px 20px 24px;
+            border-radius: 0 0 24px 24px;
+        }
+
+        .header-greeting {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .stat-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            backdrop-filter: blur(10px);
+        }
+
+        /* 内容区域 */
+        .content {
+            padding: 20px 16px;
+        }
+
+        /* 卡片样式（百词斩风格） */
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            transition: all 0.3s;
+        }
+
+        .card:active {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: #2d3748;
+        }
+
+        /* 按钮样式 */
+        .btn {
+            display: inline-block;
+            padding: 14px 28px;
+            border-radius: 24px;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00B4D8 0%, #0077B6 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(0,180,216,0.3);
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+            box-shadow: 0 2px 8px rgba(0,180,216,0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #06D6A0 0%, #05B88A 100%);
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #FFD166 0%, #F4B942 100%);
+            color: #2d3748;
+        }
+
+        .btn-gradient {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        /* 任务卡片 */
+        .task-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+
+        .task-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .task-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .task-item:last-child {
+            border-bottom: none;
+        }
+
+        .task-progress {
+            display: flex;
+            gap: 6px;
+        }
+
+        .progress-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+        }
+
+        .progress-dot.completed {
+            background: white;
+        }
+
+        /* 词库卡片 */
+        .wordbank-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .wordbank-card {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .wordbank-card:active {
+            transform: scale(0.95);
+        }
+
+        .wordbank-icon {
+            font-size: 40px;
+            margin-bottom: 8px;
+        }
+
+        .wordbank-name {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #2d3748;
+        }
+
+        .wordbank-meta {
+            font-size: 12px;
+            color: #a0aec0;
+        }
+
+        .progress-bar-mini {
+            height: 4px;
+            background: #e2e8f0;
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+
+        .progress-fill-mini {
+            height: 100%;
+            background: linear-gradient(90deg, #06D6A0 0%, #00B4D8 100%);
+            border-radius: 2px;
+        }
+
+        /* 学习页面 */
+        .study-container {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .study-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+            margin-bottom: 20px;
+        }
+
+        .word-card-large {
+            background: white;
+            border-radius: 24px;
+            padding: 40px 24px;
+            text-align: center;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+
+        .word-image {
+            font-size: 80px;
+            margin-bottom: 16px;
+        }
+
+        .word-main {
+            font-size: 36px;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 8px;
+        }
+
+        .word-phonetic {
+            font-size: 18px;
+            color: #a0aec0;
+            margin-bottom: 20px;
+        }
+
+        .audio-btn-large {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00B4D8 0%, #0077B6 100%);
+            color: white;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            margin: 0 auto;
+            box-shadow: 0 4px 12px rgba(0,180,216,0.3);
+        }
+
+        .options-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .option-btn {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 16px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: left;
+        }
+
+        .option-btn:active {
+            border-color: #00B4D8;
+            background: #f0f9ff;
+        }
+
+        .option-btn.correct {
+            border-color: #06D6A0;
+            background: #f0fff4;
+        }
+
+        .option-btn.wrong {
+            border-color: #EF476F;
+            background: #fff0f3;
+        }
+
+        /* 导入选项 */
+        .import-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .import-card {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 20px;
+            padding: 24px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .import-card:active {
+            border-color: #00B4D8;
+            background: #f0f9ff;
+            transform: scale(0.95);
+        }
+
+        .import-icon-large {
+            font-size: 56px;
+            margin-bottom: 12px;
+        }
+
+        .import-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .import-desc {
+            font-size: 12px;
+            color: #a0aec0;
+        }
+
+        /* 底部导航 */
+        .tab-bar {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 414px;
+            background: white;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 0 8px;
+            z-index: 100;
+        }
+
+        .tab-item {
+            flex: 1;
+            text-align: center;
+            cursor: pointer;
+            padding: 4px;
+            transition: all 0.3s;
+        }
+
+        .tab-item.active {
+            color: #00B4D8;
+        }
+
+        .tab-icon {
+            font-size: 26px;
+            margin-bottom: 4px;
+        }
+
+        .tab-label {
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        /* 词库列表项 */
+        .wordbank-list-item {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .wordbank-list-item:active {
+            transform: translateX(4px);
+        }
+
+        .wordbank-list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .wordbank-list-name {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .wordbank-list-count {
+            font-size: 13px;
+            color: #a0aec0;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #06D6A0 0%, #00B4D8 100%);
+            border-radius: 4px;
+            transition: width 0.3s;
+        }
+
+        .wordbank-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 8px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            background: white;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .action-btn:active {
+            background: #f0f9ff;
+            border-color: #00B4D8;
+        }
+
+        .action-btn.primary {
+            background: linear-gradient(135deg, #00B4D8 0%, #0077B6 100%);
+            color: white;
+            border: none;
+        }
+
+        /* 步骤指示器 */
+        .steps {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding: 0 20px;
+        }
+
+        .step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+        }
+
+        .step-number {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            color: #a0aec0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .step.active .step-number {
+            background: linear-gradient(135deg, #00B4D8 0%, #0077B6 100%);
+            color: white;
+        }
+
+        .step.completed .step-number {
+            background: #06D6A0;
+            color: white;
+        }
+
+        .step-label {
+            font-size: 12px;
+            color: #a0aec0;
+        }
+
+        .step.active .step-label {
+            color: #00B4D8;
+            font-weight: 600;
+        }
+
+        .step-line {
+            height: 2px;
+            background: #e2e8f0;
+            flex: 1;
+            margin: 0 8px;
+        }
+
+        .step-line.completed {
+            background: #06D6A0;
+        }
+    </style>
+</head>
+<body>
+    <div class="phone-frame">
+        <!-- 首页 -->
+        <div id="page-home" class="page active">
+            <div class="gradient-header">
+                <div class="header-greeting">👋 你好，小明</div>
+                <div style="font-size: 14px; opacity: 0.9;">今天也要加油背单词哦！</div>
+                <div class="header-stats">
+                    <div class="stat-badge">🔥 连续30天</div>
+                    <div class="stat-badge">⭐ 已学128词</div>
+                </div>
+            </div>
+            
+            <div class="content">
+                <!-- 今日任务 -->
+                <div class="task-card">
+                    <div class="task-title">📚 今日学习任务</div>
+                    <div class="task-item">
+                        <span>新学单词</span>
+                        <div class="task-progress">
+                            <div class="progress-dot"></div>
+                            <div class="progress-dot"></div>
+                            <div class="progress-dot"></div>
+                            <span style="margin-left: 8px;">0/10</span>
+                        </div>
+                    </div>
+                    <div class="task-item">
+                        <span>复习单词</span>
+                        <div class="task-progress">
+                            <div class="progress-dot completed"></div>
+                            <div class="progress-dot completed"></div>
+                            <div class="progress-dot completed"></div>
+                            <span style="margin-left: 8px;">8/15</span>
+                        </div>
+                    </div>
+                    <button class="btn btn-warning" style="margin-top: 16px;" onclick="showPage('page-study')">
+                        🎯 开始学习
+                    </button>
+                </div>
+
+                <!-- 我的词库 -->
+                <div class="card">
+                    <div class="card-title">📖 我的词库</div>
+                    <div class="wordbank-grid">
+                        <div class="wordbank-card" onclick="showPage('page-wordbank')">
+                            <div class="wordbank-icon">📘</div>
+                            <div class="wordbank-name">三年级英语</div>
+                            <div class="wordbank-meta">120词 · 67%</div>
+                            <div class="progress-bar-mini">
+                                <div class="progress-fill-mini" style="width: 67%"></div>
+                            </div>
+                        </div>
+                        <div class="wordbank-card">
+                            <div class="wordbank-icon">📗</div>
+                            <div class="wordbank-name">中考词汇</div>
+                            <div class="wordbank-meta">1600词 · 13%</div>
+                            <div class="progress-bar-mini">
+                                <div class="progress-fill-mini" style="width: 13%"></div>
+                            </div>
+                        </div>
+                        <div class="wordbank-card" style="border: 2px dashed #cbd5e0;" onclick="showPage('page-import')">
+                            <div style="font-size: 40px; margin-bottom: 8px;">➕</div>
+                            <div class="wordbank-name">创建词库</div>
+                            <div class="wordbank-meta">自定义单词</div>
+                        </div>
+                        <div class="wordbank-card" style="border: 2px dashed #cbd5e0;" onclick="showPage('page-import')">
+                            <div style="font-size: 40px; margin-bottom: 8px;">📥</div>
+                            <div class="wordbank-name">批量导入</div>
+                            <div class="wordbank-meta">拍照/Excel</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 学习统计 -->
+                <div class="card">
+                    <div class="card-title">📊 本周学习</div>
+                    <div style="text-align: center; padding: 16px;">
+                        <div style="font-size: 48px; font-weight: 700; background: linear-gradient(135deg, #00B4D8 0%, #0077B6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">65%</div>
+                        <div style="font-size: 13px; color: #a0aec0; margin-top: 8px;">已完成本周目标的65%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 词库管理页 -->
+        <div id="page-wordbank" class="page">
+            <div class="gradient-header">
+                <h1 style="font-size: 24px; font-weight: 700;">我的词库</h1>
+                <div style="font-size: 14px; opacity: 0.9; margin-top: 4px;">已创建 5 个词库</div>
+            </div>
+            
+            <div class="content">
+                <!-- 快速操作 -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px;">
+                    <button class="btn btn-gradient" onclick="alert('创建新词库')">➕ 创建词库</button>
+                    <button class="btn btn-success" onclick="showPage('page-import')">📥 批量导入</button>
+                </div>
+
+                <!-- 词库列表 -->
+                <div class="wordbank-list-item">
+                    <div class="wordbank-list-header">
+                        <div class="wordbank-list-name">📘 人教版三年级英语</div>
+                        <div class="wordbank-list-count">120词</div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 67%"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 13px; color: #a0aec0; margin-bottom: 12px;">
+                        <span>已学 80词</span>
+                        <span style="color: #06D6A0; font-weight: 600;">67%</span>
+                    </div>
+                    <div class="wordbank-actions">
+                        <button class="action-btn primary">开始学习</button>
+                        <button class="action-btn">管理</button>
+                        <button class="action-btn">更多</button>
+                    </div>
+                </div>
+
+                <div class="wordbank-list-item">
+                    <div class="wordbank-list-header">
+                        <div class="wordbank-list-name">📗 中考核心词汇</div>
+                        <div class="wordbank-list-count">1600词</div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 13%"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 13px; color: #a0aec0; margin-bottom: 12px;">
+                        <span>已学 200词</span>
+                        <span style="color: #06D6A0; font-weight: 600;">13%</span>
+                    </div>
+                    <div class="wordbank-actions">
+                        <button class="action-btn primary">开始学习</button>
+                        <button class="action-btn">管理</button>
+                        <button class="action-btn">更多</button>
+                    </div>
+                </div>
+
+                <div class="wordbank-list-item">
+                    <div class="wordbank-list-header">
+                        <div class="wordbank-list-name">📙 自定义词库</div>
+                        <div class="wordbank-list-count">50词</div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 30%"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 13px; color: #a0aec0; margin-bottom: 12px;">
+                        <span>已学 15词</span>
+                        <span style="color: #06D6A0; font-weight: 600;">30%</span>
+                    </div>
+                    <div class="wordbank-actions">
+                        <button class="action-btn primary">开始学习</button>
+                        <button class="action-btn">管理</button>
+                        <button class="action-btn">更多</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 学习页面 -->
+        <div id="page-study" class="page" style="padding-bottom: 0;">
+            <div class="study-container">
+                <div class="study-header">
+                    <div style="font-size: 18px; font-weight: 600;">看词识意</div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 16px; font-weight: 600;">3/10</div>
+                        <div style="font-size: 13px; opacity: 0.9;">⏱ 02:30</div>
+                    </div>
+                </div>
+
+                <!-- 单词卡片 -->
+                <div class="word-card-large">
+                    <div class="word-image">🍎</div>
+                    <div class="word-main">apple</div>
+                    <div class="word-phonetic">/ˈæpl/</div>
+                    <button class="audio-btn-large">🔊</button>
+                </div>
+
+                <!-- 选项 -->
+                <div style="margin-bottom: 12px; color: white; font-size: 14px;">选择正确的意思：</div>
+                <div class="options-list">
+                    <button class="option-btn" onclick="selectOption(this, true)">A. 苹果</button>
+                    <button class="option-btn" onclick="selectOption(this, false)">B. 香蕉</button>
+                    <button class="option-btn" onclick="selectOption(this, false)">C. 橙子</button>
+                    <button class="option-btn" onclick="selectOption(this, false)">D. 葡萄</button>
+                </div>
+
+                <!-- 底部提示 -->
+                <div style="margin-top: 20px; text-align: center; color: white; font-size: 13px; opacity: 0.8;">
+                    💡 左滑标记"不认识"，右滑标记"认识"
+                </div>
+            </div>
+        </div>
+
+        <!-- 批量导入页 -->
+        <div id="page-import" class="page">
+            <div class="gradient-header" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <h1 style="font-size: 24px; font-weight: 700;">批量添加单词</h1>
+                <div style="font-size: 14px; opacity: 0.9; margin-top: 4px;">选择词库：三年级英语 ▼</div>
+            </div>
+            
+            <div class="content">
+                <!-- 步骤指示器 -->
+                <div class="steps">
+                    <div class="step active">
+                        <div class="step-number">1</div>
+                        <div class="step-label">选择方式</div>
+                    </div>
+                    <div class="step-line"></div>
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <div class="step-label">导入</div>
+                    </div>
+                    <div class="step-line"></div>
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <div class="step-label">确认</div>
+                    </div>
+                </div>
+
+                <!-- 导入方式 -->
+                <div style="margin-bottom: 16px; font-size: 16px; font-weight: 600;">选择导入方式：</div>
+                <div class="import-grid">
+                    <div class="import-card">
+                        <div class="import-icon-large">📷</div>
+                        <div class="import-title">拍照识别</div>
+                        <div class="import-desc">拍摄课本或练习册<br>AI自动识别单词</div>
+                    </div>
+                    <div class="import-card">
+                        <div class="import-icon-large">🖼️</div>
+                        <div class="import-title">选择图片</div>
+                        <div class="import-desc">从相册选择图片<br>支持多张图片</div>
+                    </div>
+                    <div class="import-card">
+                        <div class="import-icon-large">📊</div>
+                        <div class="import-title">Excel导入</div>
+                        <div class="import-desc">批量导入更高效<br><span style="color: #00B4D8;">下载模板</span></div>
+                    </div>
+                    <div class="import-card">
+                        <div class="import-icon-large">✍️</div>
+                        <div class="import-title">手动输入</div>
+                        <div class="import-desc">逐个添加单词<br>适合少量添加</div>
+                    </div>
+                </div>
+
+                <!-- 导入统计 -->
+                <div class="card" style="margin-top: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 16px; font-weight: 600;">📦 已导入单词</div>
+                            <div style="font-size: 13px; color: #a0aec0; margin-top: 4px;">今日已导入 25 个单词</div>
+                        </div>
+                        <div style="font-size: 24px; font-weight: 700; color: #00B4D8;">25</div>
+                    </div>
+                </div>
+
+                <!-- 导入历史 -->
+                <div class="card">
+                    <div class="card-title">📜 导入历史</div>
+                    <div style="font-size: 13px; color: #a0aec0;">
+                        <div style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
+                            2026-04-11 14:30 | 📷 拍照导入 | 25个单词
+                        </div>
+                        <div style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
+                            2026-04-10 10:15 | 📊 Excel导入 | 120个单词
+                        </div>
+                        <div style="padding: 8px 0;">
+                            2026-04-09 16:45 | 📷 拍照导入 | 18个单词
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 个人中心 -->
+        <div id="page-profile" class="page">
+            <div class="gradient-header" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div style="text-align: center; padding: 20px 0;">
+                    <div style="width: 80px; height: 80px; border-radius: 50%; background: white; margin: 0 auto 12px; display: flex; align-items: center; justify-content: center; font-size: 40px;">👤</div>
+                    <div style="font-size: 20px; font-weight: 700;">学习小达人</div>
+                    <div style="font-size: 14px; opacity: 0.9; margin-top: 4px;">已坚持学习 30 天</div>
+                </div>
+            </div>
+            
+            <div class="content" style="margin-top: -20px;">
+                <!-- 学习统计 -->
+                <div class="card">
+                    <div class="card-title">📊 学习统计</div>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 28px; font-weight: 700; color: #00B4D8;">256</div>
+                            <div style="font-size: 13px; color: #a0aec0;">总学习单词</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 28px; font-weight: 700; color: #06D6A0;">180</div>
+                            <div style="font-size: 13px; color: #a0aec0;">已掌握</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 28px; font-weight: 700; color: #FFD166;">7天</div>
+                            <div style="font-size: 13px; color: #a0aec0;">连续打卡</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 28px; font-weight: 700; color: #EF476F;">85%</div>
+                            <div style="font-size: 13px; color: #a0aec0;">正确率</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 设置菜单 -->
+                <div class="card" style="padding: 0; overflow: hidden;">
+                    <div style="padding: 16px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; cursor: pointer;">
+                        <span>⚙️ 每日学习量</span>
+                        <span style="color: #a0aec0;">10个 ›</span>
+                    </div>
+                    <div style="padding: 16px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; cursor: pointer;">
+                        <span>🔔 提醒时间</span>
+                        <span style="color: #a0aec0;">20:00 ›</span>
+                    </div>
+                    <div style="padding: 16px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; cursor: pointer;">
+                        <span>🎯 学习目标</span>
+                        <span style="color: #a0aec0;">设置目标 ›</span>
+                    </div>
+                    <div style="padding: 16px; display: flex; justify-content: space-between; cursor: pointer;">
+                        <span>💬 意见反馈</span>
+                        <span style="color: #a0aec0;">›</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部导航栏 -->
+        <div class="tab-bar">
+            <div class="tab-item active" onclick="showPage('page-home')">
+                <div class="tab-icon">🏠</div>
+                <div class="tab-label">首页</div>
+            </div>
+            <div class="tab-item" onclick="showPage('page-wordbank')">
+                <div class="tab-icon">📚</div>
+                <div class="tab-label">词库</div>
+            </div>
+            <div class="tab-item" onclick="showPage('page-import')">
+                <div class="tab-icon">📥</div>
+                <div class="tab-label">导入</div>
+            </div>
+            <div class="tab-item" onclick="showPage('page-profile')">
+                <div class="tab-icon">👤</div>
+                <div class="tab-label">我的</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 页面切换
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            document.getElementById(pageId).classList.add('active');
+            
+            document.querySelectorAll('.tab-item').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            const tabMap = {
+                'page-home': 0,
+                'page-wordbank': 1,
+                'page-import': 2,
+                'page-profile': 3
+            };
+            
+            if (tabMap[pageId] !== undefined) {
+                document.querySelectorAll('.tab-item')[tabMap[pageId]].classList.add('active');
+            }
+            
+            window.scrollTo(0, 0);
+        }
+
+        // 选择选项
+        function selectOption(element, isCorrect) {
+            document.querySelectorAll('.option-btn').forEach(opt => {
+                opt.classList.remove('correct', 'wrong');
+                opt.style.pointerEvents = 'none';
+            });
+            
+            if (isCorrect) {
+                element.classList.add('correct');
+                setTimeout(() => {
+                    alert('✓ 太棒了！回答正确！+10分');
+                }, 300);
+            } else {
+                element.classList.add('wrong');
+                document.querySelectorAll('.option-btn')[0].classList.add('correct');
+                setTimeout(() => {
+                    alert('✗ 别灰心，正确答案是：苹果');
+                }, 300);
+            }
+        }
+    </script>
+</body>
+</html>
