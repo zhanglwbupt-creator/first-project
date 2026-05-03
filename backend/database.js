@@ -362,7 +362,7 @@ const wordOps = {
 // 学习记录操作
 const studyRecords = {
   // 记录学习状态
-  record(userId, bankId, wordId, studyType, correct) {
+  record(userId, bankId, wordId, studyType, correct, masteryLevel) {
     const today = new Date().toISOString().split('T')[0]
     
     // 查询是否已有记录
@@ -374,38 +374,68 @@ const studyRecords = {
     
     if (oldRecord) {
       // 更新现有记录
-      const newStatus = correct ? 2 : 1
-      const newReviewStage = correct ? (oldRecord.review_stage || 0) + 1 : 0
+      let newReviewStage = oldRecord.review_stage || 0
+      let newStatus = oldRecord.status || 1
+      
+      // 根据掌握度调整复习阶段
+      if (masteryLevel === 2) {
+        // 完全掌握：stage + 1
+        newReviewStage = Math.min(newReviewStage + 1, 6)
+        newStatus = 2
+      } else if (masteryLevel === 1) {
+        // 模糊：保持stage不变
+        newReviewStage = newReviewStage
+        newStatus = 1
+      } else {
+        // 陌生/答错：重置为0
+        newReviewStage = 0
+        newStatus = 0
+      }
+      
       const nextReviewDate = this.calculateNextReviewDate(newReviewStage)
       
       const updateStmt = db.prepare(`
         UPDATE study_records 
-        SET status = ?, correct = ?, review_stage = ?, next_review_date = ?
+        SET status = ?, correct = ?, review_stage = ?, next_review_date = ?, mastery_level = ?
         WHERE word_id = ? AND study_date = ?
       `)
-      updateStmt.run([newStatus, correct ? 1 : 0, newReviewStage, nextReviewDate, wordId, today])
+      updateStmt.run([newStatus, correct ? 1 : 0, newReviewStage, nextReviewDate, masteryLevel || 0, wordId, today])
       updateStmt.free()
     } else {
       // 创建新记录
-      const reviewStage = correct ? 1 : 0
+      let reviewStage = 0
+      let status = 0
+      
+      // 根据掌握度设置初始阶段
+      if (masteryLevel === 2) {
+        reviewStage = 1
+        status = 2
+      } else if (masteryLevel === 1) {
+        reviewStage = 0
+        status = 1
+      } else {
+        reviewStage = 0
+        status = 0
+      }
+      
       const nextReviewDate = this.calculateNextReviewDate(reviewStage)
-      const status = correct ? 2 : 1
       
       const insertStmt = db.prepare(`
-        INSERT INTO study_records (user_id, word_id, bank_id, study_date, study_type, status, correct, review_stage, next_review_date)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO study_records (user_id, word_id, bank_id, study_date, study_type, status, correct, review_stage, next_review_date, mastery_level)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
-      insertStmt.run([userId, wordId, bankId, today, studyType, status, correct ? 1 : 0, reviewStage, nextReviewDate])
+      insertStmt.run([userId, wordId, bankId, today, studyType, status, correct ? 1 : 0, reviewStage, nextReviewDate, masteryLevel || 0])
       insertStmt.free()
     }
     
     saveDatabase()
   },
 
-  // 计算下次复习日期（艾宾浩斯遗忘曲线）
+  // 计算下次复习日期（百词斩式艾宾浩斯遗忘曲线）
   calculateNextReviewDate(stage) {
-    const intervals = [1, 2, 4, 7, 15, 30] // 复习间隔（天）
-    const interval = intervals[stage] || 30
+    // 百词斩复习间隔：1天、2天、4天、7天、15天、30天、60天
+    const intervals = [1, 2, 4, 7, 15, 30, 60]
+    const interval = intervals[stage] || 60 // 超过6阶段默认60天
     const nextDate = new Date()
     nextDate.setDate(nextDate.getDate() + interval)
     return nextDate.toISOString().split('T')[0]

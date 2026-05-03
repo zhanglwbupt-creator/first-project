@@ -44,13 +44,14 @@ router.get('/review/:bankId', (req, res) => {
 router.post('/record', (req, res) => {
   try {
     const userId = req.userId
-    const { bankId, wordId, studyType, correct } = req.body
+    const { bankId, wordId, studyType, correct, masteryLevel } = req.body
     
     if (!bankId || !wordId) {
       return res.status(400).json({ error: '参数不完整' })
     }
     
-    db.studyRecords.record(userId, bankId, wordId, studyType || 'learn', correct)
+    // masteryLevel: 0=陌生/答错, 1=模糊, 2=认识
+    db.studyRecords.record(userId, bankId, wordId, studyType || 'learn', correct, masteryLevel)
     
     res.json({ message: '记录成功' })
   } catch (error) {

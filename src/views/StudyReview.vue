@@ -32,11 +32,27 @@
               'wrong': showResult && option.selected && !option.isCorrect
             }"
             @click="selectOption(option)"
-            :disabled="showResult"
+            :disabled="showResult && isCorrect"
           >
             <span class="option-label">{{ ['A', 'B', 'C', 'D'][index] }}</span>
             <span class="option-text">{{ option.text }}</span>
           </button>
+        </div>
+
+        <!-- 百词斩式掌握度选择（答对后显示） -->
+        <div v-if="showResult && isCorrect" class="mastery-feedback">
+          <div class="mastery-title"> 你掌握这个单词了吗？</div>
+          <div class="mastery-buttons">
+            <button class="mastery-btn mastery-unknown" @click="recordMastery(0)">
+              😵 陌生
+            </button>
+            <button class="mastery-btn mastery-fuzzy" @click="recordMastery(1)">
+              🤔 模糊
+            </button>
+            <button class="mastery-btn mastery-known" @click="recordMastery(2)">
+              😊 认识
+            </button>
+          </div>
         </div>
 
         <div v-if="showResult" class="result-feedback">
@@ -168,17 +184,46 @@ const selectOption = async (option) => {
   isCorrect.value = option.isCorrect
   showResult.value = true
   
+  // 百词斩式：答对后让用户选择掌握度
+  if (isCorrect.value) {
+    // 答对，显示掌握度选择按钮，不自动跳转
+  } else {
+    // 答错，自动记录为陌生
+    await api.post('/api/study/record', {
+      bankId: bankId.value,
+      wordId: currentWord.value.id,
+      studyType: 'review',
+      correct: false,
+      masteryLevel: 0 // 陌生
+    })
+    
+    results.value.push({
+      word: currentWord.value.word,
+      correct: false
+    })
+  }
+}
+
+// 记录掌握程度（仿百词斩）
+const recordMastery = async (level) => {
+  // level: 0-陌生, 1-模糊, 2-认识
+  
   await api.post('/api/study/record', {
     bankId: bankId.value,
     wordId: currentWord.value.id,
     studyType: 'review',
-    correct: isCorrect.value
+    correct: isCorrect.value,
+    masteryLevel: level
   })
   
   results.value.push({
     word: currentWord.value.word,
-    correct: isCorrect.value
+    correct: isCorrect.value,
+    masteryLevel: level
   })
+  
+  // 自动进入下一个单词
+  nextWord()
 }
 
 const nextWord = () => {
@@ -466,5 +511,83 @@ const playAudio = () => {
 
 .btn-primary:hover {
   background: #e63946;
+}
+
+/* 百词斩式掌握度选择按钮 */
+.mastery-feedback {
+  margin-top: 24px;
+  padding: 20px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.mastery-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 16px;
+}
+
+.mastery-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.mastery-btn {
+  flex: 1;
+  padding: 16px 12px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.mastery-btn:active {
+  transform: scale(0.95);
+}
+
+.mastery-btn.mastery-known {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(72, 187, 120, 0.3);
+}
+
+.mastery-btn.mastery-known:hover {
+  background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(72, 187, 120, 0.4);
+}
+
+.mastery-btn.mastery-fuzzy {
+  background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(237, 137, 54, 0.3);
+}
+
+.mastery-btn.mastery-fuzzy:hover {
+  background: linear-gradient(135deg, #dd6b20 0%, #c05621 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(237, 137, 54, 0.4);
+}
+
+.mastery-btn.mastery-unknown {
+  background: linear-gradient(135deg, #f56c6c 0%, #e53e3e 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(245, 108, 108, 0.3);
+}
+
+.mastery-btn.mastery-unknown:hover {
+  background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(245, 108, 108, 0.4);
 }
 </style>

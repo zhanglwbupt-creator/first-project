@@ -277,18 +277,25 @@ const selectOption = async (option) => {
   isCorrect.value = option.isCorrect
   showResult.value = true
   
-  // 记录学习结果
-  await api.post('/api/study/record', {
-    bankId: bankId.value,
-    wordId: currentWord.value.id,
-    studyType: 'learn',
-    correct: isCorrect.value
-  })
-  
-  results.value.push({
-    word: currentWord.value.word,
-    correct: isCorrect.value
-  })
+  // 记录学习结果（百词斩式：答对后让用户选择掌握度）
+  if (isCorrect.value) {
+    // 答对，显示掌握度选择按钮，不自动跳转
+    // 用户选择后才记录并跳转
+  } else {
+    // 答错，自动记录为陌生
+    await api.post('/api/study/record', {
+      bankId: bankId.value,
+      wordId: currentWord.value.id,
+      studyType: 'learn',
+      correct: false,
+      masteryLevel: 0 // 陌生
+    })
+    
+    results.value.push({
+      word: currentWord.value.word,
+      correct: false
+    })
+  }
 }
 
 const checkSpell = async () => {
@@ -298,18 +305,24 @@ const checkSpell = async () => {
   isCorrect.value = correct
   showResult.value = true
   
-  // 记录学习结果
-  await api.post('/api/study/record', {
-    bankId: bankId.value,
-    wordId: currentWord.value.id,
-    studyType: 'learn',
-    correct: isCorrect.value
-  })
-  
-  results.value.push({
-    word: currentWord.value.word,
-    correct: isCorrect.value
-  })
+  // 记录学习结果（百词斩式：答对后让用户选择掌握度）
+  if (isCorrect.value) {
+    // 答对，显示掌握度选择按钮，不自动跳转
+  } else {
+    // 答错，自动记录为陌生
+    await api.post('/api/study/record', {
+      bankId: bankId.value,
+      wordId: currentWord.value.id,
+      studyType: 'learn',
+      correct: false,
+      masteryLevel: 0 // 陌生
+    })
+    
+    results.value.push({
+      word: currentWord.value.word,
+      correct: false
+    })
+  }
 }
 
 const nextWord = () => {
@@ -349,24 +362,23 @@ const playAudio = () => {
 }
 
 // 记录掌握程度（仿百词斩）
-const recordMastery = (level) => {
+const recordMastery = async (level) => {
   // level: 0-陌生, 1-模糊, 2-认识
-  // 根据掌握程度调整复习计划
-  let reviewStage = 0
   
-  if (level === 2) {
-    // 认识：进入下一阶段
-    reviewStage = Math.min((currentWord.value.review_stage || 0) + 1, 5)
-  } else if (level === 1) {
-    // 模糊：保持当前阶段
-    reviewStage = currentWord.value.review_stage || 0
-  } else {
-    // 陌生：重置到第一阶段
-    reviewStage = 0
-  }
+  // 记录到后端
+  await api.post('/api/study/record', {
+    bankId: bankId.value,
+    wordId: currentWord.value.id,
+    studyType: 'learn',
+    correct: isCorrect.value,
+    masteryLevel: level
+  })
   
-  // 这里可以扩展：保存掌握程度到数据库
-  console.log(`单词 ${currentWord.value.word} 掌握程度: ${level}, 复习阶段: ${reviewStage}`)
+  results.value.push({
+    word: currentWord.value.word,
+    correct: isCorrect.value,
+    masteryLevel: level
+  })
   
   // 自动进入下一个单词
   nextWord()
@@ -872,5 +884,83 @@ const recordMastery = (level) => {
 .btn-primary:disabled {
   background: #cbd5e0;
   cursor: not-allowed;
+}
+
+/* 百词斩式掌握度选择按钮 */
+.mastery-feedback {
+  margin-top: 24px;
+  padding: 20px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.mastery-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 16px;
+}
+
+.mastery-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.mastery-btn {
+  flex: 1;
+  padding: 16px 12px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.mastery-btn:active {
+  transform: scale(0.95);
+}
+
+.mastery-btn.easy {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(72, 187, 120, 0.3);
+}
+
+.mastery-btn.easy:hover {
+  background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(72, 187, 120, 0.4);
+}
+
+.mastery-btn.medium {
+  background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(237, 137, 54, 0.3);
+}
+
+.mastery-btn.medium:hover {
+  background: linear-gradient(135deg, #dd6b20 0%, #c05621 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(237, 137, 54, 0.4);
+}
+
+.mastery-btn.hard {
+  background: linear-gradient(135deg, #f56c6c 0%, #e53e3e 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(245, 108, 108, 0.3);
+}
+
+.mastery-btn.hard:hover {
+  background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(245, 108, 108, 0.4);
 }
 </style>
