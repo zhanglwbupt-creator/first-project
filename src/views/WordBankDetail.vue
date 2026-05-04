@@ -83,7 +83,11 @@ import api from '@/api'
 const route = useRoute()
 const router = useRouter()
 
-const bankId = computed(() => parseInt(route.query.bankId))
+const bankId = computed(() => {
+  const id = parseInt(route.query.bankId)
+  console.log('🔍 WordBankDetail bankId:', { raw: route.query.bankId, parsed: id })
+  return id
+})
 const bankName = ref('加载中...')
 const words = ref([])
 const searchText = ref('')
@@ -132,6 +136,11 @@ const loadWords = async () => {
 }
 
 const loadProgress = async () => {
+  if (isNaN(bankId.value)) {
+    console.error('❌ bankId无效:', bankId.value)
+    return
+  }
+  
   try {
     const response = await api.get(`/api/study/progress/${bankId.value}`)
     const data = response.data

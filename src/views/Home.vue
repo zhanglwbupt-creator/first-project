@@ -9,6 +9,9 @@
         </button>
       </div>
       <div class="header-subtitle">今天也要加油背单词哦！</div>
+      <div v-if="reviewCount > 0" class="review-badge">
+        🔔 有 <strong>{{ reviewCount }}</strong> 个单词待复习
+      </div>
       <div class="header-stats">
         <div class="stat-badge"> 连续{{ stats.continuousDays }}天</div>
         <div class="stat-badge">⭐ 已学{{ stats.learnedWords }}词</div>
@@ -91,7 +94,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useWordBankStore } from '@/stores/wordbank'
-import { initNotifications } from '@/utils/notification'
+import { initNotifications, sendReviewReminder } from '@/utils/notification'
 import api from '@/api'
 
 const router = useRouter()
@@ -99,6 +102,7 @@ const wordBankStore = useWordBankStore()
 
 const userName = ref('同学')
 const wordBanks = ref([])
+const reviewCount = ref(0)
 const stats = ref({
   continuousDays: 0,
   learnedWords: 0,
@@ -118,17 +122,36 @@ onMounted(async () => {
   await wordBankStore.fetchWordBanks()
   wordBanks.value = wordBankStore.wordBanks
   await loadStats()
+  await loadReviewCount()
   
   // 初始化复习提醒
   initNotifications().then(result => {
     if (result.success) {
       console.log('复习提醒已设置:', result.scheduledTime)
+      // 如果有待复习单词，立即发送提醒
+      if (reviewCount.value > 0) {
+        sendReviewReminder(reviewCount.value)
+      }
     }
   })
   
   // 监听学习完成事件
   window.addEventListener('studyCompleted', loadStats)
 })
+
+const loadReviewCount = async () => {
+  try {
+    // 获取所有词库的待复习单词数量
+    const response = await api.get('/api/study/review-stats/progress')
+    let total = 0
+    response.data.forEach(stats => {
+      total += stats.toReview || 0
+    })
+    reviewCount.value = total
+  } catch (error) {
+    console.error('加载复习数量失败:', error)
+  }
+}
 
 const loadStats = async () => {
   try {
@@ -252,6 +275,24 @@ const handleLogout = () => {
 .header-subtitle {
   font-size: 14px;
   opacity: 0.9;
+}
+
+.review-badge {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 8px 16px;
+  border-radius: 20px;
+  display: inline-block;
+  margin-top: 12px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: #f56c6c;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
 }
 
 .header-stats {

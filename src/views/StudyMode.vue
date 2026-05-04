@@ -62,6 +62,9 @@
               </span>
               <span v-else>暂无待复习单词</span>
             </div>
+            <div v-if="reviewStats.reviewAccuracy > 0" class="review-stats-mini">
+              <span>🎯 复习正确率: {{ reviewStats.reviewAccuracy }}%</span>
+            </div>
           </div>
           <div class="mode-arrow">→</div>
         </div>
@@ -71,14 +74,14 @@
       <div class="settings-card">
         <div class="settings-title">⚙️ 学习设置</div>
         <div class="setting-item">
-          <span>每日学习单词数</span>
+          <span>每次学习单词数</span>
           <van-stepper 
             v-model="dailyLimit" 
             min="5" 
-            max="50" 
             @change="saveSettings"
           />
         </div>
+        <div class="setting-hint">提示：学完后可追加继续学习，无上限</div>
       </div>
     </div>
   </div>
@@ -101,7 +104,13 @@ const stats = ref({
   accuracy: 0
 })
 const reviewCount = ref(0)
-const dailyLimit = ref(10)
+const reviewStats = ref({
+  toReview: 0,
+  reviewed: 0,
+  reviewAccuracy: 0,
+  stageDistribution: []
+})
+const dailyLimit = ref(20)
 
 onMounted(async () => {
   await loadBankInfo()
@@ -115,7 +124,7 @@ onMounted(async () => {
 
 const loadBankInfo = async () => {
   try {
-    const response = await axios.get(`/api/wordbanks/${bankId.value}`)
+    const response = await api.get(`/api/wordbanks/${bankId.value}`)
     bankName.value = response.data.name
   } catch (error) {
     console.error('加载词库信息失败:', error)
@@ -124,7 +133,7 @@ const loadBankInfo = async () => {
 
 const loadStats = async () => {
   try {
-    const response = await axios.get(`/api/study/stats/${bankId.value}`)
+    const response = await api.get(`/api/study/stats/${bankId.value}`)
     stats.value = response.data
   } catch (error) {
     console.error('加载统计失败:', error)
@@ -133,10 +142,14 @@ const loadStats = async () => {
 
 const loadReviewCount = async () => {
   try {
-    const response = await axios.get(`/api/study/review/${bankId.value}`, {
-      params: { limit: 1 }
+    const response = await api.get(`/api/study/review/${bankId.value}`, {
+      params: { limit: 100 }
     })
     reviewCount.value = response.data.length
+    
+    // 加载复习统计
+    const statsResponse = await api.get(`/api/study/review-stats/${bankId.value}`)
+    reviewStats.value = statsResponse.data
   } catch (error) {
     console.error('加载复习数量失败:', error)
   }
@@ -158,7 +171,19 @@ const startLearn = (mode) => {
     name: 'StudyLearn', 
     query: { 
       bankId: bankId.value,
-      mode 
+      mode,
+      continueLearn: 'false' // 首次学习
+    } 
+  })
+}
+
+const continueLearn = (mode) => {
+  router.push({ 
+    name: 'StudyLearn', 
+    query: { 
+      bankId: bankId.value,
+      mode,
+      continueLearn: 'true' // 继续学习
     } 
   })
 }
@@ -269,6 +294,11 @@ const goBack = () => {
   border: 2px solid #feb2b2;
 }
 
+.continue-card {
+  background: linear-gradient(135deg, #f0fff4 0%, #e6fffa 100%);
+  border: 2px solid #9ae6b4;
+}
+
 .mode-icon {
   font-size: 36px;
 }
@@ -287,6 +317,15 @@ const goBack = () => {
 .mode-desc {
   font-size: 13px;
   color: #718096;
+}
+
+
+
+.review-stats-mini {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #667eea;
+  font-weight: 600;
 }
 
 .mode-arrow {
@@ -313,5 +352,11 @@ const goBack = () => {
   justify-content: space-between;
   align-items: center;
   padding: 8px 0;
+}
+
+.setting-hint {
+  font-size: 13px;
+  color: #718096;
+  margin-top: 8px;
 }
 </style>

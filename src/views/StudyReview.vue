@@ -17,12 +17,21 @@
     <div class="content">
       <div v-if="words.length > 0" class="review-mode">
         <div class="word-card">
-          <div class="word-text">{{ currentWord.word }}</div>
-          <div v-if="currentWord.phonetic" class="word-phonetic">{{ currentWord.phonetic }}</div>
+          <!-- 看词识意模式：显示单词 -->
+          <template v-if="currentWord.study_mode === 'choice'">
+            <div class="word-text">{{ currentWord.word }}</div>
+            <div v-if="currentWord.phonetic" class="word-phonetic">{{ currentWord.phonetic }}</div>
+          </template>
+          <!-- 拼写复习模式：不显示单词 -->
+          <template v-else>
+            <div class="review-mode-tag spell">✍️ 拼写复习</div>
+          </template>
           <div class="review-stage">第 {{ currentWord.review_stage || 0 }} 次复习</div>
         </div>
 
-        <div class="options-list">
+        <!-- 看词识意模式 -->
+        <div v-if="currentWord.study_mode === 'choice'" class="options-list">
+          <div class="review-mode-tag choice"> 识意复习</div>
           <button
             v-for="(option, index) in options"
             :key="index"
@@ -37,6 +46,27 @@
             <span class="option-label">{{ ['A', 'B', 'C', 'D'][index] }}</span>
             <span class="option-text">{{ option.text }}</span>
           </button>
+        </div>
+
+        <!-- 拼写练习模式 -->
+        <div v-if="currentWord.study_mode === 'spell'" class="spell-section">
+          <div class="spell-hint">{{ currentWord.definition_cn }}</div>
+          <div class="spell-input-wrapper">
+            <input
+              v-model="userInput"
+              type="text"
+              class="spell-input"
+              placeholder="输入单词拼写..."
+              @keyup.enter="checkSpell"
+              :disabled="showResult"
+            />
+            <button class="spell-btn" @click="checkSpell" :disabled="showResult || !userInput.trim()">
+              确认
+            </button>
+          </div>
+          <div v-if="showResult && !isCorrect" class="spell-answer">
+            正确答案：<strong>{{ currentWord.word }}</strong>
+          </div>
         </div>
 
         <!-- 百词斩式掌握度选择（答对后显示） -->
@@ -122,6 +152,7 @@ const showResult = ref(false)
 const isCorrect = ref(false)
 const results = ref([])
 const options = ref([])
+const userInput = ref('') // 拼写输入
 
 const currentWord = computed(() => {
   return words.value[currentIndex.value] || {}
@@ -193,6 +224,35 @@ const selectOption = async (option) => {
       bankId: bankId.value,
       wordId: currentWord.value.id,
       studyType: 'review',
+      studyMode: currentWord.value.study_mode || 'choice',
+      correct: false,
+      masteryLevel: 0 // 陌生
+    })
+    
+    results.value.push({
+      word: currentWord.value.word,
+      correct: false
+    })
+  }
+}
+
+// 拼写检查
+const checkSpell = async () => {
+  if (!userInput.value.trim() || showResult.value) return
+  
+  const correct = userInput.value.trim().toLowerCase() === currentWord.value.word.toLowerCase()
+  isCorrect.value = correct
+  showResult.value = true
+  
+  if (isCorrect.value) {
+    // 答对，显示掌握度选择按钮
+  } else {
+    // 答错，自动记录为陌生
+    await api.post('/api/study/record', {
+      bankId: bankId.value,
+      wordId: currentWord.value.id,
+      studyType: 'review',
+      studyMode: currentWord.value.study_mode || 'spell',
       correct: false,
       masteryLevel: 0 // 陌生
     })
@@ -212,6 +272,7 @@ const recordMastery = async (level) => {
     bankId: bankId.value,
     wordId: currentWord.value.id,
     studyType: 'review',
+    studyMode: currentWord.value.study_mode || 'choice',
     correct: isCorrect.value,
     masteryLevel: level
   })
@@ -226,10 +287,36 @@ const recordMastery = async (level) => {
   nextWord()
 }
 
-const nextWord = () => {
+const nextWord = async () => {
+  // 如果是答对且还没有记录掌握度，自动记录为模糊
+  if (isCorrect.value && showResult.value) {
+    // 检查是否已经记录过（通过检查结果数组中是否有当前单词）
+    const alreadyRecorded = results.value.some(r => r.word === currentWord.value.word)
+    
+    if (!alreadyRecorded) {
+      console.log('⚠️ 复习答对但未选择掌握度，自动记录为模糊')
+      await api.post('/api/study/record', {
+        bankId: bankId.value,
+        wordId: currentWord.value.id,
+        studyType: 'review',
+        studyMode: currentWord.value.study_mode || 'choice',
+        correct: true,
+        masteryLevel: 1 // 自动记录为模糊
+      })
+      
+      results.value.push({
+        word: currentWord.value.word,
+        correct: true,
+        masteryLevel: 1
+      })
+    }
+  }
+  
   if (currentIndex.value < words.value.length - 1) {
     currentIndex.value++
     showResult.value = false
+    isCorrect.value = false
+    userInput.value = '' // 清空拼写输入
     generateOptions()
   } else {
     endReview()
@@ -589,5 +676,114 @@ const playAudio = () => {
   background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(245, 108, 108, 0.4);
+}
+
+/* 复习模式标签 */
+.review-mode-tag {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.review-mode-tag.choice {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  margin-top: 16px;
+}
+
+.review-mode-tag.spell {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+  font-size: 18px;
+  padding: 8px 20px;
+}
+
+/* 拼写练习区域 */
+.spell-section {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin-top: 24px;
+}
+
+.spell-hint {
+  font-size: 18px;
+  color: #4a5568;
+  margin-bottom: 20px;
+  text-align: center;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.spell-input-wrapper {
+  display: block;
+  width: 100%;
+}
+
+.spell-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px;
+  font-size: 18px;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  text-align: center;
+  transition: all 0.3s;
+  margin-bottom: 12px;
+}
+
+.spell-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.spell-input:disabled {
+  background: #f7fafc;
+  cursor: not-allowed;
+}
+
+.spell-btn {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.spell-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.spell-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.spell-btn:disabled {
+  background: #cbd5e0;
+  cursor: not-allowed;
+}
+
+.spell-answer {
+  margin-top: 16px;
+  padding: 12px;
+  background: #fff5f5;
+  border-left: 4px solid #f56c6c;
+  border-radius: 8px;
+  color: #c53030;
+  font-size: 16px;
 }
 </style>

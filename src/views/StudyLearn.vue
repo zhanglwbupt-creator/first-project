@@ -56,7 +56,23 @@
         </div>
 
         <div v-if="showResult" class="result-feedback">
-          <div v-if="isCorrect" class="feedback-correct">
+          <!-- 学习完成反馈 -->
+          <div v-if="currentIndex >= words.length - 1 && isCorrect && results.length > 0" class="feedback-completed">
+            <div class="feedback-icon">🎉</div>
+            <div class="feedback-text">本轮学习完成！</div>
+            <div class="feedback-subtitle">已完成 {{ results.length }} 个单词，正确 {{ results.filter(r => r.correct).length }} 个</div>
+            
+            <div class="completion-actions">
+              <button class="btn btn-primary" @click="endStudy">
+                查看学习报告
+              </button>
+              <button class="btn btn-continue-study" @click="continueStudy">
+                继续学习 →
+              </button>
+            </div>
+          </div>
+          
+          <div v-else-if="isCorrect" class="feedback-correct">
             <div class="feedback-icon">✅</div>
             <div class="feedback-text">太棒了！回答正确</div>
           </div>
@@ -94,8 +110,8 @@
             </div>
           </div>
           
-          <button class="btn btn-primary" @click="nextWord" style="margin-top: 16px;">
-            {{ currentIndex < words.length - 1 ? '继续下一个 →' : '查看学习报告' }}
+          <button v-if="currentIndex < words.length - 1" class="btn btn-primary" @click="nextWord" style="margin-top: 16px;">
+            继续下一个 →
           </button>
         </div>
       </div>
@@ -132,7 +148,23 @@
         </div>
 
         <div v-if="showResult" class="result-feedback">
-          <div v-if="isCorrect" class="feedback-correct">
+          <!-- 学习完成反馈 -->
+          <div v-if="currentIndex >= words.length - 1 && isCorrect && results.length > 0" class="feedback-completed">
+            <div class="feedback-icon">🎉</div>
+            <div class="feedback-text">本轮学习完成！</div>
+            <div class="feedback-subtitle">已完成 {{ results.length }} 个单词，正确 {{ results.filter(r => r.correct).length }} 个</div>
+            
+            <div class="completion-actions">
+              <button class="btn btn-primary" @click="endStudy">
+                查看学习报告
+              </button>
+              <button class="btn btn-continue-study" @click="continueStudy">
+                继续学习 →
+              </button>
+            </div>
+          </div>
+          
+          <div v-else-if="isCorrect" class="feedback-correct">
             <div class="feedback-icon">✅</div>
             <div class="feedback-text">拼写完全正确！</div>
           </div>
@@ -171,8 +203,8 @@
             </div>
           </div>
           
-          <button class="btn btn-primary" @click="nextWord" style="margin-top: 16px;">
-            {{ currentIndex < words.length - 1 ? '继续下一个 →' : '查看学习报告' }}
+          <button v-if="currentIndex < words.length - 1" class="btn btn-primary" @click="nextWord" style="margin-top: 16px;">
+            继续下一个 →
           </button>
         </div>
       </div>
@@ -181,7 +213,12 @@
       <div v-else class="empty-state">
         <div class="empty-icon">🎉</div>
         <div class="empty-text">今日学习已完成！</div>
-        <button class="btn btn-primary" @click="endStudy">查看学习报告</button>
+        <div class="empty-actions">
+          <button class="btn btn-primary" @click="endStudy">查看学习报告</button>
+          <button class="btn btn-continue-study" @click="continueStudyFromEmpty">
+            继续学习 →
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -197,6 +234,7 @@ const router = useRouter()
 
 const bankId = ref(parseInt(route.query.bankId))
 const mode = ref(route.query.mode || 'choice')
+const isContinueLearn = ref(route.query.continueLearn === 'true') // 是否是继续学习
 const words = ref([])
 const currentIndex = ref(0)
 const showResult = ref(false)
@@ -217,6 +255,15 @@ const progress = computed(() => {
 const options = ref([])
 
 onMounted(async () => {
+  if (isContinueLearn.value) {
+    // 继续学习：先从sessionStorage加载已有单词
+    const savedResults = sessionStorage.getItem('studyResults')
+    if (savedResults) {
+      const parsed = JSON.parse(savedResults)
+      // 这里需要加载已学习的单词，但我们只有结果，没有完整单词信息
+      // 所以直接加载新单词即可
+    }
+  }
   await loadWords()
   if (mode.value === 'choice') {
     generateOptions()
@@ -225,11 +272,25 @@ onMounted(async () => {
 
 const loadWords = async () => {
   try {
-    const dailyLimit = localStorage.getItem(`dailyLimit_${bankId.value}`) || 10
+    const dailyLimit = localStorage.getItem(`dailyLimit_${bankId.value}`) || 20
     const response = await api.get(`/api/study/learn/${bankId.value}`, {
-      params: { limit: dailyLimit }
+      params: { 
+        limit: dailyLimit,
+        studyMode: mode.value // choice/spell
+      }
     })
-    words.value = response.data
+    
+    if (isContinueLearn.value) {
+      // 继续学习：追加新单词
+      const newWords = response.data.filter(w => 
+        !words.value.some(existing => existing.id === w.id)
+      )
+      words.value = [...words.value, ...newWords]
+      console.log('🔁 继续学习，追加单词:', newWords.length, '个')
+    } else {
+      // 首次学习：替换单词列表
+      words.value = response.data
+    }
   } catch (error) {
     console.error('加载单词失败:', error)
   }
@@ -277,24 +338,35 @@ const selectOption = async (option) => {
   isCorrect.value = option.isCorrect
   showResult.value = true
   
+  console.log('👉 选择答案:', {
+    word: currentWord.value.word,
+    correct: isCorrect.value
+  })
+  
   // 记录学习结果（百词斩式：答对后让用户选择掌握度）
   if (isCorrect.value) {
     // 答对，显示掌握度选择按钮，不自动跳转
     // 用户选择后才记录并跳转
+    console.log('✅ 答对，等待用户选择掌握度')
   } else {
     // 答错，自动记录为陌生
+    console.log('❌ 答错，自动记录为陌生')
     await api.post('/api/study/record', {
       bankId: bankId.value,
       wordId: currentWord.value.id,
       studyType: 'learn',
+      studyMode: mode.value, // choice/spell
       correct: false,
       masteryLevel: 0 // 陌生
     })
     
     results.value.push({
       word: currentWord.value.word,
-      correct: false
+      correct: false,
+      masteryLevel: 0
     })
+    
+    console.log('📊 当前results:', results.value)
   }
 }
 
@@ -314,18 +386,44 @@ const checkSpell = async () => {
       bankId: bankId.value,
       wordId: currentWord.value.id,
       studyType: 'learn',
+      studyMode: mode.value, // choice/spell
       correct: false,
       masteryLevel: 0 // 陌生
     })
     
     results.value.push({
       word: currentWord.value.word,
-      correct: false
+      correct: false,
+      masteryLevel: 0
     })
   }
 }
 
-const nextWord = () => {
+const nextWord = async () => {
+  // 如果是答对且还没有记录掌握度，自动记录为模糊
+  if (isCorrect.value && showResult.value) {
+    // 检查是否已经记录过（通过检查结果数组中是否有当前单词）
+    const alreadyRecorded = results.value.some(r => r.word === currentWord.value.word)
+    
+    if (!alreadyRecorded) {
+      console.log('⚠️ 答对但未选择掌握度，自动记录为模糊')
+      await api.post('/api/study/record', {
+        bankId: bankId.value,
+        wordId: currentWord.value.id,
+        studyType: 'learn',
+        studyMode: mode.value, // choice/spell
+        correct: true,
+        masteryLevel: 1 // 自动记录为模糊
+      })
+      
+      results.value.push({
+        word: currentWord.value.word,
+        correct: true,
+        masteryLevel: 1
+      })
+    }
+  }
+  
   if (currentIndex.value < words.value.length - 1) {
     currentIndex.value++
     showResult.value = false
@@ -334,12 +432,21 @@ const nextWord = () => {
       generateOptions()
     }
   } else {
-    endStudy()
+    // 学习完成，保存结果到 sessionStorage
+    saveStudyResults()
+    // 不直接跳转，而是显示完成界面，让用户选择继续学习或查看报告
+    showResult.value = true
+    isCorrect.value = true
   }
 }
 
 const endStudy = () => {
   // 保存学习结果到sessionStorage
+  saveStudyResults()
+  router.push({ name: 'StudyReport' })
+}
+
+const saveStudyResults = () => {
   sessionStorage.setItem('studyResults', JSON.stringify({
     bankId: bankId.value,
     mode: mode.value,
@@ -347,8 +454,71 @@ const endStudy = () => {
     total: results.value.length,
     correct: results.value.filter(r => r.correct).length
   }))
+}
+
+const continueStudy = async () => {
+  // 追加学习：调用新API获取单词
+  isContinueLearn.value = true
+  const currentWordCount = words.value.length
+  const currentWordIds = words.value.map(w => w.id)
   
-  router.push({ name: 'StudyReport' })
+  try {
+    const dailyLimit = localStorage.getItem(`dailyLimit_${bankId.value}`) || 20
+    const response = await api.post(`/api/study/continue-learn/${bankId.value}`, {
+      limit: dailyLimit,
+      excludeWordIds: currentWordIds,
+      studyMode: mode.value // choice/spell
+    })
+    
+    // 追加新单词
+    words.value = [...words.value, ...response.data]
+    console.log('🔁 继续学习，追加单词:', response.data.length, '个')
+    
+    currentIndex.value = currentWordCount // 从新增的单词开始
+    showResult.value = false
+    userInput.value = ''
+    if (mode.value === 'choice') {
+      generateOptions()
+    }
+  } catch (error) {
+    console.error('继续学习失败:', error)
+    alert('继续学习失败：' + error.message)
+  }
+}
+
+// 从空状态页面继续学习
+const continueStudyFromEmpty = async () => {
+  // 空状态：调用continue-learn API获取单词
+  try {
+    const dailyLimit = localStorage.getItem(`dailyLimit_${bankId.value}`) || 20
+    const response = await api.post(`/api/study/continue-learn/${bankId.value}`, {
+      limit: dailyLimit,
+      excludeWordIds: [], // 空状态，没有已加载的单词
+      studyMode: mode.value // choice/spell
+    })
+    
+    console.log('🔁 空状态继续学习，获取到单词:', response.data.length, '个')
+    
+    if (response.data.length === 0) {
+      alert('词库中的所有单词都已学习完毕！请添加更多单词。')
+      return
+    }
+    
+    // 加载新单词
+    isContinueLearn.value = false
+    words.value = response.data
+    currentIndex.value = 0
+    showResult.value = false
+    userInput.value = ''
+    results.value = []
+    
+    if (mode.value === 'choice') {
+      generateOptions()
+    }
+  } catch (error) {
+    console.error('继续学习失败:', error)
+    alert('继续学习失败：' + error.message)
+  }
 }
 
 // 播放单词发音（使用Web Speech API）
@@ -365,11 +535,18 @@ const playAudio = () => {
 const recordMastery = async (level) => {
   // level: 0-陌生, 1-模糊, 2-认识
   
+  console.log('🎯 记录掌握度:', {
+    word: currentWord.value.word,
+    level,
+    levelText: level === 2 ? '认识' : level === 1 ? '模糊' : '陌生'
+  })
+  
   // 记录到后端
   await api.post('/api/study/record', {
     bankId: bankId.value,
     wordId: currentWord.value.id,
     studyType: 'learn',
+    studyMode: mode.value, // choice/spell
     correct: isCorrect.value,
     masteryLevel: level
   })
@@ -379,6 +556,8 @@ const recordMastery = async (level) => {
     correct: isCorrect.value,
     masteryLevel: level
   })
+  
+  console.log('📊 当前results:', results.value)
   
   // 自动进入下一个单词
   nextWord()
@@ -582,19 +761,27 @@ const recordMastery = async (level) => {
 }
 
 .spell-input {
-  display: flex;
-  gap: 12px;
+  display: block;
   margin-bottom: 24px;
 }
 
+.spell-input .btn {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .input-word {
-  flex: 1;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
   padding: 16px;
   font-size: 24px;
   border: 2px solid #e2e8f0;
   border-radius: 12px;
   text-align: center;
   font-weight: 600;
+  margin-bottom: 12px;
 }
 
 .input-word:focus {
@@ -852,8 +1039,23 @@ const recordMastery = async (level) => {
 }
 
 .empty-icon {
-  font-size: 64px;
+  font-size: 80px;
   margin-bottom: 16px;
+}
+
+.empty-text {
+  font-size: 20px;
+  color: #4a5568;
+  margin-bottom: 32px;
+  font-weight: 600;
+}
+
+.empty-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 300px;
+  margin: 0 auto;
 }
 
 .empty-text {
@@ -884,6 +1086,31 @@ const recordMastery = async (level) => {
 .btn-primary:disabled {
   background: #cbd5e0;
   cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #48bb78;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: #38a169;
+}
+
+.btn-continue-study {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(72, 187, 120, 0.3);
+}
+
+.btn-continue-study:hover {
+  background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(72, 187, 120, 0.4);
+}
+
+.btn-continue-study:active {
+  transform: translateY(0);
 }
 
 /* 百词斩式掌握度选择按钮 */
@@ -962,5 +1189,25 @@ const recordMastery = async (level) => {
   background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(245, 108, 108, 0.4);
+}
+
+/* 学习完成反馈 */
+.feedback-completed {
+  text-align: center;
+  padding: 20px;
+}
+
+.feedback-subtitle {
+  font-size: 16px;
+  color: #718096;
+  margin-bottom: 24px;
+}
+
+.completion-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 300px;
+  margin: 0 auto;
 }
 </style>

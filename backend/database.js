@@ -83,10 +83,12 @@ async function initDatabase() {
       bank_id INTEGER NOT NULL,
       study_date DATE NOT NULL,
       study_type TEXT NOT NULL DEFAULT 'learn', -- learn/review
+      study_mode TEXT DEFAULT 'choice', -- choice/spell（看词识意/拼写练习）
       status INTEGER NOT NULL DEFAULT 0, -- 0-未学习 1-学习中 2-已掌握
       correct INTEGER DEFAULT 0, -- 是否正确 0-错误 1-正确
       review_stage INTEGER DEFAULT 0, -- 艾宾浩斯复习阶段 0-5
       next_review_date DATE, -- 下次复习日期
+      mastery_level INTEGER DEFAULT 0, -- 掌握度 0-陌生 1-模糊 2-认识
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE,
@@ -97,6 +99,17 @@ async function initDatabase() {
   db.run(`CREATE INDEX IF NOT EXISTS idx_study_records_word_id ON study_records(word_id)`)
   db.run(`CREATE INDEX IF NOT EXISTS idx_study_records_study_date ON study_records(study_date)`)
   db.run(`CREATE INDEX IF NOT EXISTS idx_study_records_next_review ON study_records(next_review_date)`)
+
+  // 数据迁移：如果mastery_level字段不存在，则添加
+  try {
+    db.run(`ALTER TABLE study_records ADD COLUMN mastery_level INTEGER DEFAULT 0`)
+    console.log('✅ 添加mastery_level字段成功')
+  } catch (error) {
+    // 字段已存在，忽略错误
+    if (!error.message.includes('duplicate column')) {
+      console.log('mastery_level字段已存在')
+    }
+  }
 
   // 保存数据库
   saveDatabase()
@@ -362,12 +375,12 @@ const wordOps = {
 // 学习记录操作
 const studyRecords = {
   // 记录学习状态
-  record(userId, bankId, wordId, studyType, correct, masteryLevel) {
+  record(userId, bankId, wordId, studyType, correct, masteryLevel, studyMode = 'choice') {
     const today = new Date().toISOString().split('T')[0]
     
-    // 查询是否已有记录
-    const checkStmt = db.prepare('SELECT * FROM study_records WHERE word_id = ? AND study_date = ?')
-    checkStmt.bind([wordId, today])
+    // 查询是否已有记录（同一模式）
+    const checkStmt = db.prepare('SELECT * FROM study_records WHERE word_id = ? AND study_date = ? AND study_mode = ?')
+    checkStmt.bind([wordId, today, studyMode])
     const hasRecord = checkStmt.step()
     const oldRecord = hasRecord ? checkStmt.getAsObject() : null
     checkStmt.free()
@@ -397,9 +410,9 @@ const studyRecords = {
       const updateStmt = db.prepare(`
         UPDATE study_records 
         SET status = ?, correct = ?, review_stage = ?, next_review_date = ?, mastery_level = ?
-        WHERE word_id = ? AND study_date = ?
+        WHERE word_id = ? AND study_date = ? AND study_mode = ?
       `)
-      updateStmt.run([newStatus, correct ? 1 : 0, newReviewStage, nextReviewDate, masteryLevel || 0, wordId, today])
+      updateStmt.run([newStatus, correct ? 1 : 0, newReviewStage, nextReviewDate, masteryLevel || 0, wordId, today, studyMode])
       updateStmt.free()
     } else {
       // 创建新记录
@@ -421,10 +434,10 @@ const studyRecords = {
       const nextReviewDate = this.calculateNextReviewDate(reviewStage)
       
       const insertStmt = db.prepare(`
-        INSERT INTO study_records (user_id, word_id, bank_id, study_date, study_type, status, correct, review_stage, next_review_date, mastery_level)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO study_records (user_id, word_id, bank_id, study_date, study_type, study_mode, status, correct, review_stage, next_review_date, mastery_level)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
-      insertStmt.run([userId, wordId, bankId, today, studyType, status, correct ? 1 : 0, reviewStage, nextReviewDate, masteryLevel || 0])
+      insertStmt.run([userId, wordId, bankId, today, studyType, studyMode, status, correct ? 1 : 0, reviewStage, nextReviewDate, masteryLevel || 0])
       insertStmt.free()
     }
     
@@ -442,7 +455,7 @@ const studyRecords = {
   },
 
   // 获取今日待学习单词（未学习过的）
-  getTodayWordsToLearn(userId, bankId, limit = 10) {
+  getTodayWordsToLearn(userId, bankId, limit = 20, studyMode = 'choice') {
     const today = new Date().toISOString().split('T')[0]
     
     const stmt = db.prepare(`
@@ -451,11 +464,12 @@ const studyRecords = {
       AND w.id NOT IN (
         SELECT word_id FROM study_records 
         WHERE user_id = ? AND study_date = ? AND study_type = 'learn'
+        AND study_mode = ?
       )
       ORDER BY w.id
       LIMIT ?
     `)
-    stmt.bind([userId, bankId, userId, today, limit])
+    stmt.bind([userId, bankId, userId, today, studyMode, limit])
     const words = []
     while (stmt.step()) {
       words.push(stmt.getAsObject())
@@ -464,22 +478,93 @@ const studyRecords = {
     return words
   },
 
-  // 获取待复习单词（到达复习日期的）
+  // 获取追加学习单词（优先未学习，其次掌握度低的）
+  getContinueLearnWords(userId, bankId, limit = 20, excludeWordIds = [], studyMode = 'choice') {
+    const today = new Date().toISOString().split('T')[0]
+    
+    // 先查询今天未学习的单词
+    const stmt1 = db.prepare(`
+      SELECT w.* FROM words w
+      WHERE w.user_id = ? AND w.bank_id = ?
+      AND w.id NOT IN (
+        SELECT word_id FROM study_records 
+        WHERE user_id = ? AND study_date = ? AND study_type = 'learn'
+        AND study_mode = ?
+      )
+      ${excludeWordIds.length > 0 ? `AND w.id NOT IN (${excludeWordIds.join(',')})` : ''}
+      ORDER BY w.id
+      LIMIT ?
+    `)
+    stmt1.bind([userId, bankId, userId, today, studyMode, limit])
+    const words = []
+    while (stmt1.step()) {
+      words.push(stmt1.getAsObject())
+    }
+    stmt1.free()
+    
+    // 如果数量不够，补充掌握度低的单词（陌生或模糊）
+    if (words.length < limit) {
+      const remaining = limit - words.length
+      const currentIds = words.map(w => w.id)
+      const allExcludeIds = [...currentIds, ...excludeWordIds]
+      
+      const stmt2 = db.prepare(`
+        SELECT w.* FROM words w
+        WHERE w.user_id = ? AND w.bank_id = ?
+        AND w.id IN (
+          SELECT word_id FROM study_records 
+          WHERE user_id = ? AND study_type = 'learn'
+          AND study_mode = ?
+          AND mastery_level IN (0, 1)
+          ORDER BY study_date DESC
+        )
+        ${allExcludeIds.length > 0 ? `AND w.id NOT IN (${allExcludeIds.join(',')})` : ''}
+        ORDER BY w.id
+        LIMIT ?
+      `)
+      stmt2.bind([userId, bankId, userId, studyMode, remaining])
+      while (stmt2.step()) {
+        words.push(stmt2.getAsObject())
+      }
+      stmt2.free()
+    }
+    
+    return words
+  },
+
+  // 获取待复习单词（到达复习日期的 + 今天答错/陌生的）
   getWordsToReview(userId, bankId, limit = 20) {
     const today = new Date().toISOString().split('T')[0]
     
+    // 不去重，保留所有需要复习的记录（包括同一单词的不同模式）
     const stmt = db.prepare(`
-      SELECT w.*, sr.review_stage, sr.next_review_date
+      SELECT w.*, 
+             sr.review_stage, 
+             sr.next_review_date, 
+             sr.mastery_level,
+             sr.study_date,
+             sr.study_mode,
+             sr.id as record_id
       FROM words w
       INNER JOIN study_records sr ON w.id = sr.word_id
       WHERE w.user_id = ? AND w.bank_id = ?
       AND sr.user_id = ?
-      AND sr.next_review_date <= ?
-      AND sr.status >= 1
-      ORDER BY sr.next_review_date ASC
+      AND (
+        -- 条件1：到达复习日期的单词
+        (sr.next_review_date <= ? AND sr.status >= 1)
+        OR
+        -- 条件2：今天答错或选择陌生的单词（直接进入复习列表）
+        (sr.study_date = ? AND sr.mastery_level = 0)
+      )
+      ORDER BY 
+        CASE 
+          WHEN sr.study_date = ? AND sr.mastery_level = 0 THEN 0  -- 今天的错题优先
+          ELSE 1
+        END,
+        sr.next_review_date ASC
       LIMIT ?
     `)
-    stmt.bind([userId, bankId, userId, today, limit])
+    stmt.bind([userId, bankId, userId, today, today, today, limit])
     const words = []
     while (stmt.step()) {
       words.push(stmt.getAsObject())
@@ -492,6 +577,8 @@ const studyRecords = {
   getStats(userId, bankId) {
     const today = new Date().toISOString().split('T')[0]
     
+    console.log('📊 查询学习统计:', { userId, bankId, today })
+    
     // 今日学习数
     const todayStmt = db.prepare(`
       SELECT COUNT(*) as count FROM study_records 
@@ -500,6 +587,7 @@ const studyRecords = {
     todayStmt.bind([userId, bankId, today])
     const todayData = todayStmt.step() ? todayStmt.getAsObject() : { count: 0 }
     todayStmt.free()
+    console.log('  今日学习:', todayData.count)
     
     // 总学习数
     const totalStmt = db.prepare(`
@@ -509,6 +597,7 @@ const studyRecords = {
     totalStmt.bind([userId, bankId])
     const totalData = totalStmt.step() ? totalStmt.getAsObject() : { count: 0 }
     totalStmt.free()
+    console.log('  总学习:', totalData.count)
     
     // 已掌握数
     const masteredStmt = db.prepare(`
@@ -518,6 +607,7 @@ const studyRecords = {
     masteredStmt.bind([userId, bankId])
     const masteredData = masteredStmt.step() ? masteredStmt.getAsObject() : { count: 0 }
     masteredStmt.free()
+    console.log('  已掌握:', masteredData.count)
     
     // 正确率
     const accuracyStmt = db.prepare(`
@@ -530,16 +620,85 @@ const studyRecords = {
     accuracyStmt.bind([userId, bankId])
     const accuracyData = accuracyStmt.step() ? accuracyStmt.getAsObject() : { total: 0, correct_count: 0 }
     accuracyStmt.free()
+    console.log('  正确率数据:', accuracyData)
     
     const accuracy = accuracyData.total > 0 
       ? Math.round((accuracyData.correct_count / accuracyData.total) * 100) 
       : 0
+    
+    console.log('  最终统计:', { todayLearned: todayData.count, totalLearned: totalData.count, mastered: masteredData.count, accuracy })
     
     return {
       todayLearned: todayData.count,
       totalLearned: totalData.count,
       mastered: masteredData.count,
       accuracy: accuracy
+    }
+  },
+
+  // 获取复习统计（百词斩式）
+  getReviewStats(userId, bankId) {
+    const today = new Date().toISOString().split('T')[0]
+    
+    // 待复习单词数量（包括到达复习日期的 + 今天答错/陌生的），去重统计
+    const toReviewStmt = db.prepare(`
+      SELECT COUNT(DISTINCT word_id) as count FROM study_records 
+      WHERE user_id = ? AND bank_id = ? 
+      AND (
+        (next_review_date <= ? AND status >= 1)
+        OR
+        (study_date = ? AND mastery_level = 0)
+      )
+    `)
+    toReviewStmt.bind([userId, bankId, today, today])
+    const toReviewData = toReviewStmt.step() ? toReviewStmt.getAsObject() : { count: 0 }
+    toReviewStmt.free()
+    
+    // 已复习单词数量
+    const reviewedStmt = db.prepare(`
+      SELECT COUNT(*) as count FROM study_records 
+      WHERE user_id = ? AND bank_id = ? AND study_date = ? AND study_type = 'review'
+    `)
+    reviewedStmt.bind([userId, bankId, today])
+    const reviewedData = reviewedStmt.step() ? reviewedStmt.getAsObject() : { count: 0 }
+    reviewedStmt.free()
+    
+    // 复习正确率
+    const accuracyStmt = db.prepare(`
+      SELECT 
+        COUNT(*) as total,
+        SUM(correct) as correct_count
+      FROM study_records 
+      WHERE user_id = ? AND bank_id = ? AND study_type = 'review'
+    `)
+    accuracyStmt.bind([userId, bankId])
+    const accuracyData = accuracyStmt.step() ? accuracyStmt.getAsObject() : { total: 0, correct_count: 0 }
+    accuracyStmt.free()
+    
+    const accuracy = accuracyData.total > 0 
+      ? Math.round((accuracyData.correct_count / accuracyData.total) * 100) 
+      : 0
+    
+    // 各阶段单词分布
+    const stageStmt = db.prepare(`
+      SELECT review_stage, COUNT(*) as count 
+      FROM study_records 
+      WHERE user_id = ? AND bank_id = ? 
+      GROUP BY review_stage
+      ORDER BY review_stage
+    `)
+    stageStmt.bind([userId, bankId])
+    const stageDistribution = []
+    while (stageStmt.step()) {
+      stageDistribution.push(stageStmt.getAsObject())
+    }
+    stageStmt.free()
+    
+    return {
+      toReview: toReviewData.count,
+      reviewed: reviewedData.count,
+      reviewAccuracy: accuracy,
+      stageDistribution
     }
   }
 }
