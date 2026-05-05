@@ -229,6 +229,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
+import { playCorrectSound, playWrongSound, playCompleteSound } from '@/utils/sound'
 
 const route = useRoute()
 const router = useRouter()
@@ -346,10 +347,14 @@ const selectOption = async (option) => {
   
   // 记录学习结果（百词斩式：答对后让用户选择掌握度）
   if (isCorrect.value) {
+    // 播放正确音效
+    playCorrectSound()
     // 答对，显示掌握度选择按钮，不自动跳转
     // 用户选择后才记录并跳转
     console.log('✅ 答对，等待用户选择掌握度')
   } else {
+    // 播放错误音效
+    playWrongSound()
     // 答错，自动记录为陌生
     console.log('❌ 答错，自动记录为陌生')
     await api.post('/api/study/record', {
@@ -380,8 +385,12 @@ const checkSpell = async () => {
   
   // 记录学习结果（百词斩式：答对后让用户选择掌握度）
   if (isCorrect.value) {
+    // 播放正确音效
+    playCorrectSound()
     // 答对，显示掌握度选择按钮，不自动跳转
   } else {
+    // 播放错误音效
+    playWrongSound()
     // 答错，自动记录为陌生
     await api.post('/api/study/record', {
       bankId: bankId.value,
@@ -435,6 +444,8 @@ const nextWord = async () => {
   } else {
     // 学习完成，保存结果到 sessionStorage
     saveStudyResults()
+    // 播放完成音效
+    playCompleteSound()
     // 不直接跳转，而是显示完成界面，让用户选择继续学习或查看报告
     showResult.value = true
     isCorrect.value = true

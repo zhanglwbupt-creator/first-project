@@ -146,6 +146,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
+import { playCorrectSound, playWrongSound, playCompleteSound } from '@/utils/sound'
 
 const router = useRouter()
 
@@ -221,8 +222,12 @@ const selectOption = async (option) => {
   
   // 百词斩式：答对后让用户选择掌握度
   if (isCorrect.value) {
+    // 播放正确音效
+    playCorrectSound()
     // 答对，显示掌握度选择按钮，不自动跳转
   } else {
+    // 播放错误音效
+    playWrongSound()
     // 答错，自动记录为陌生
     await api.post('/api/study/record', {
       bankId: bankId.value,
@@ -249,8 +254,12 @@ const checkSpell = async () => {
   showResult.value = true
   
   if (isCorrect.value) {
+    // 播放正确音效
+    playCorrectSound()
     // 答对，显示掌握度选择按钮
   } else {
+    // 播放错误音效
+    playWrongSound()
     // 答错，自动记录为陌生
     await api.post('/api/study/record', {
       bankId: bankId.value,
@@ -328,6 +337,9 @@ const nextWord = async () => {
 }
 
 const endReview = () => {
+  // 播放完成音效
+  playCompleteSound()
+  
   sessionStorage.setItem('studyResults', JSON.stringify({
     bankId: bankId.value,
     mode: 'review',

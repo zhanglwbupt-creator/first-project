@@ -149,40 +149,56 @@ router.post('/:id/words/batch', async (req, res) => {
 
 // 自动补全单词信息（使用百度翻译API）
 async function enrichWordsData(words) {
+  console.log(`开始批量补全${words.length}个单词的信息...`)
+  
+  // 批量并发处理（每次处理10个，避免并发过多）
+  const batchSize = 10
   const enriched = []
   
-  for (const word of words) {
-    try {
-      // 只补全缺失的字段
-      const enrichedWord = { ...word }
-      
-      // 检查是否需要查询（缺少任意关键字段）
-      const needsQuery = !word.definition_cn || !word.phonetic || !word.definition_en
-      
-      if (needsQuery && word.word) {
+  for (let i = 0; i < words.length; i += batchSize) {
+    const batch = words.slice(i, i + batchSize)
+    console.log(`处理第${i + 1}-${Math.min(i + batchSize, words.length)}个单词...`)
+    
+    // 并发处理当前批次
+    const batchResults = await Promise.allSettled(
+      batch.map(async (word) => {
         try {
-          console.log(`正在查询单词: ${word.word}`)
-          const translateResult = await callBaiduTranslate(word.word)
-          if (translateResult) {
-            // 只填充缺失的字段
-            enrichedWord.definition_cn = word.definition_cn || translateResult.definition_cn || ''
-            enrichedWord.definition_en = word.definition_en || translateResult.definition_en || ''
-            enrichedWord.phonetic = word.phonetic || translateResult.phonetic || ''
-            enrichedWord.example_sentence = word.example_sentence || translateResult.example_sentence || ''
-            console.log(`✓ ${word.word} 查询成功`)
+          // 只补全缺失的字段
+          const enrichedWord = { ...word }
+          
+          // 检查是否需要查询（缺少任意关键字段）
+          const needsQuery = !word.definition_cn || !word.phonetic || !word.definition_en
+          
+          if (needsQuery && word.word) {
+            const translateResult = await callBaiduTranslate(word.word)
+            if (translateResult) {
+              // 只填充缺失的字段
+              enrichedWord.definition_cn = word.definition_cn || translateResult.definition_cn || ''
+              enrichedWord.definition_en = word.definition_en || translateResult.definition_en || ''
+              enrichedWord.phonetic = word.phonetic || translateResult.phonetic || ''
+              enrichedWord.example_sentence = word.example_sentence || translateResult.example_sentence || ''
+            }
           }
-        } catch (err) {
-          console.error(`翻译单词 ${word.word} 失败:`, err.message)
+          
+          return enrichedWord
+        } catch (error) {
+          console.error(`处理单词 ${word.word} 失败:`, error)
+          return word // 出错时使用原始数据
         }
+      })
+    )
+    
+    // 收集结果
+    batchResults.forEach(result => {
+      if (result.status === 'fulfilled') {
+        enriched.push(result.value)
       }
-      
-      enriched.push(enrichedWord)
-    } catch (error) {
-      console.error(`处理单词 ${word.word} 失败:`, error)
-      enriched.push(word) // 出错时使用原始数据
-    }
+    })
+    
+    console.log(`已完成${Math.min(i + batchSize, words.length)}/${words.length}个单词`)
   }
   
+  console.log(`单词信息补全完成！`)
   return enriched
 }
 

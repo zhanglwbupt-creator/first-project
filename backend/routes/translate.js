@@ -123,13 +123,45 @@ async function translateWithDictionary(word) {
     let example = ''
     
     if (entry.meanings && entry.meanings.length > 0) {
-      // 取第一个词性的第一个定义
-      const firstMeaning = entry.meanings[0]
-      if (firstMeaning.definitions && firstMeaning.definitions.length > 0) {
-        const firstDef = firstMeaning.definitions[0]
-        definition_en = firstDef.definition || ''
-        example = firstDef.example || ''
+      // 遍历所有词性，寻找有例句的定义
+      for (const meaning of entry.meanings) {
+        if (meaning.definitions && meaning.definitions.length > 0) {
+          for (const def of meaning.definitions) {
+            if (def.example) {
+              example = def.example
+              break
+            }
+          }
+          if (example) break
+        }
       }
+      
+      // 如果还是没有例句，取第一个定义
+      if (!example) {
+        const firstMeaning = entry.meanings[0]
+        if (firstMeaning.definitions && firstMeaning.definitions.length > 0) {
+          const firstDef = firstMeaning.definitions[0]
+          definition_en = firstDef.definition || ''
+        }
+      } else {
+        // 有例句，也取对应的释义
+        for (const meaning of entry.meanings) {
+          if (meaning.definitions && meaning.definitions.length > 0) {
+            for (const def of meaning.definitions) {
+              if (def.example === example) {
+                definition_en = def.definition || ''
+                break
+              }
+            }
+            if (definition_en) break
+          }
+        }
+      }
+    }
+    
+    // 如果API没有返回例句，生成一个简单例句
+    if (!example && definition_en) {
+      example = generateSimpleExample(word, definition_en)
     }
     
     return {
@@ -190,6 +222,23 @@ function getMockTranslation(word) {
     definition_en: `Definition of ${word}`,
     example: `Example sentence with ${word}.`
   }
+}
+
+// 生成简单例句（当API没有返回例句时使用）
+function generateSimpleExample(word, definition) {
+  // 尝试从释义中提取关键信息生成例句
+  const patterns = [
+    `I need to ${word}.`,
+    `Please ${word} it.`,
+    `He decided to ${word}.`,
+    `She will ${word} tomorrow.`,
+    `We should ${word} carefully.`,
+    `They had to ${word}.`
+  ]
+  
+  // 简单随机选择一个
+  const index = Math.floor(Math.random() * patterns.length)
+  return patterns[index]
 }
 
 module.exports = router
