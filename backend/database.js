@@ -139,15 +139,31 @@ const userOps = {
     const bcrypt = require('bcryptjs')
     const hashedPassword = bcrypt.hashSync(password, 10)
     
+    console.log('📝 准备插入用户:', { username, nickname: nickname || username, email })
+    
     db.run(
       'INSERT INTO users (username, password, nickname, email) VALUES (?, ?, ?, ?)',
       [username, hashedPassword, nickname || username, email]
     )
     saveDatabase()
     
-    const stmt = db.prepare('SELECT id, username, nickname, email, created_at FROM users WHERE id = (SELECT last_insert_rowid())')
-    stmt.step()
+    // 使用username查询刚插入的用户（更可靠）
+    const stmt = db.prepare('SELECT id, username, nickname, email, created_at FROM users WHERE username = ?')
+    stmt.bind([username])
+    const hasRow = stmt.step()
+    
+    console.log(' step()返回值:', hasRow)
+    
+    if (!hasRow) {
+      console.error(' 查询用户失败')
+      stmt.free()
+      throw new Error('创建用户后查询失败')
+    }
+    
     const user = stmt.getAsObject()
+    console.log('📊 getAsObject()返回:', user)
+    console.log('📊 user.id类型:', typeof user?.id, 'user.id值:', user?.id)
+    
     stmt.free()
     
     return user

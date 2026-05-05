@@ -1,6 +1,6 @@
 {
   "name": "wordbook-web",
-  "version": "1.0.0",
+  "version": "1.2.2",
   "description": "中小学生背单词网页版",
   "scripts": {
     "dev": "vite",

@@ -26,6 +26,9 @@ router.post('/register', (req, res) => {
 
     // 创建用户
     const user = db.users.create(username, password, nickname, email)
+    
+    console.log('👤 创建用户成功:', user)
+    console.log('👤 user.id:', user?.id, 'user.username:', user?.username)
 
     // 生成JWT token
     const token = jwt.sign(
@@ -33,6 +36,9 @@ router.post('/register', (req, res) => {
       JWT_SECRET,
       { expiresIn: '7d' }
     )
+    
+    console.log('🔑 JWT payload:', { id: user.id, username: user.username })
+    console.log('🔑 Token前20字符:', token.substring(0, 20))
 
     res.status(201).json({
       message: '注册成功',
@@ -115,16 +121,23 @@ router.get('/profile', (req, res) => {
 function authenticate(req, res, next) {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '')
+    
+    console.log('🔐 认证中间件 - token:', token ? token.substring(0, 20) + '...' : '无token')
+    console.log('🔐 认证中间件 - headers:', JSON.stringify(req.headers.authorization))
 
     if (!token) {
+      console.error('❌ 认证失败: 未提供token')
       return res.status(401).json({ error: '未登录' })
     }
 
     const decoded = jwt.verify(token, JWT_SECRET)
+    console.log('✅ token解析成功 - userId:', decoded.id, 'username:', decoded.username)
+    
     req.userId = decoded.id
     req.username = decoded.username
     next()
   } catch (error) {
+    console.error('❌ token验证失败:', error.message)
     res.status(401).json({ error: 'token无效或已过期' })
   }
 }

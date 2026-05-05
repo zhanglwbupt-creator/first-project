@@ -6,9 +6,19 @@ const db = require('../database')
 router.get('/', (req, res) => {
   try {
     const userId = req.userId
+    console.log('📚 获取词库列表 - userId:', userId)
+    
+    if (!userId) {
+      console.error('❌ userId为undefined，认证中间件可能未正确执行')
+      return res.status(401).json({ error: '未登录，请先登录' })
+    }
+    
     const banks = db.wordBanks.getAll(userId)
-    res.json(banks)
+    console.log('✅ 查询到词库数量:', banks?.length || 0)
+    res.json(banks || [])
   } catch (error) {
+    console.error('❌ 获取词库列表失败:', error)
+    console.error('❌ 错误堆栈:', error.stack)
     res.status(500).json({ error: error.message })
   }
 })
