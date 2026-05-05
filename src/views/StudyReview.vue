@@ -21,6 +21,7 @@
           <template v-if="currentWord.study_mode === 'choice'">
             <div class="word-text">{{ currentWord.word }}</div>
             <div v-if="currentWord.phonetic" class="word-phonetic">{{ currentWord.phonetic }}</div>
+            <div v-if="currentWord.definition_en" class="word-definition-en">{{ currentWord.definition_en }}</div>
           </template>
           <!-- 拼写复习模式：不显示单词 -->
           <template v-else>
@@ -50,7 +51,10 @@
 
         <!-- 拼写练习模式 -->
         <div v-if="currentWord.study_mode === 'spell'" class="spell-section">
-          <div class="spell-hint">{{ currentWord.definition_cn }}</div>
+          <div class="spell-hint">
+            <div v-if="currentWord.definition_cn">{{ currentWord.definition_cn }}</div>
+            <div v-if="currentWord.definition_en" class="spell-hint-en">{{ currentWord.definition_en }}</div>
+          </div>
           <div class="spell-input-wrapper">
             <input
               v-model="userInput"
@@ -381,33 +385,41 @@ const playAudio = () => {
 }
 
 .content {
-  padding: 20px;
+  padding: 16px;
 }
 
 .word-card {
   background: white;
-  border-radius: 16px;
-  padding: 40px 20px;
+  border-radius: 12px;
+  padding: 24px 16px;
   text-align: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 16px;
 }
 
 .word-text {
-  font-size: 36px;
+  font-size: 32px;
   font-weight: 700;
   color: #2d3748;
-  margin-bottom: 12px;
-}
-
-.word-phonetic {
-  font-size: 18px;
-  color: #718096;
   margin-bottom: 8px;
 }
 
-.review-stage {
+.word-phonetic {
+  font-size: 16px;
+  color: #718096;
+  margin-bottom: 6px;
+}
+
+.word-definition-en {
   font-size: 14px;
+  color: #a0aec0;
+  margin-bottom: 6px;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.review-stage {
+  font-size: 13px;
   color: #f56c6c;
   font-weight: 600;
 }
@@ -415,17 +427,17 @@ const playAudio = () => {
 .options-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .option-btn {
   background: white;
   border: 2px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: 10px;
+  padding: 12px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   cursor: pointer;
   transition: all 0.2s;
   text-align: left;
@@ -447,8 +459,8 @@ const playAudio = () => {
 }
 
 .option-label {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: #f56c6c;
   color: white;
@@ -456,32 +468,33 @@ const playAudio = () => {
   align-items: center;
   justify-content: center;
   font-weight: 600;
+  font-size: 14px;
   flex-shrink: 0;
 }
 
 .option-text {
   flex: 1;
-  font-size: 16px;
+  font-size: 15px;
   color: #2d3748;
 }
 
 .result-feedback {
   background: white;
-  border-radius: 12px;
-  padding: 20px;
+  border-radius: 10px;
+  padding: 16px;
   text-align: center;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .feedback-icon {
-  font-size: 48px;
-  margin-bottom: 8px;
+  font-size: 40px;
+  margin-bottom: 6px;
 }
 
 .feedback-text {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .feedback-correct {
@@ -704,19 +717,27 @@ const playAudio = () => {
 /* 拼写练习区域 */
 .spell-section {
   background: white;
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  margin-top: 24px;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-top: 16px;
 }
 
 .spell-hint {
-  font-size: 18px;
+  font-size: 16px;
   color: #4a5568;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
   text-align: center;
   font-weight: 500;
-  line-height: 1.6;
+  line-height: 1.5;
+}
+
+.spell-hint-en {
+  font-size: 14px;
+  color: #718096;
+  margin-top: 6px;
+  font-weight: 400;
+  font-style: italic;
 }
 
 .spell-input-wrapper {

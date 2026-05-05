@@ -95,6 +95,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useWordBankStore } from '@/stores/wordbank'
 import { initNotifications, sendReviewReminder } from '@/utils/notification'
+import { Dialog } from 'vant'
 import api from '@/api'
 
 const router = useRouter()
@@ -223,14 +224,21 @@ const goToImport = () => {
 
 // 退出登录
 const handleLogout = () => {
-  if (confirm('确定要退出登录吗？')) {
+  Dialog.confirm({
+    title: '提示',
+    message: '确定要退出登录吗？',
+    confirmButtonText: '确定',
+    cancelButtonText: '取消'
+  }).then(() => {
     // 清除token和用户信息
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     
     // 跳转到登录页
     router.push('/auth')
-  }
+  }).catch(() => {
+    // 用户取消，不做任何操作
+  })
 }
 </script>
 

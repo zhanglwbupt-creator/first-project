@@ -20,6 +20,7 @@
         <div class="word-card">
           <div class="word-text">{{ currentWord.word }}</div>
           <div v-if="currentWord.phonetic" class="word-phonetic">{{ currentWord.phonetic }}</div>
+          <div v-if="currentWord.definition_en" class="word-definition-en">{{ currentWord.definition_en }}</div>
         </div>
 
         <div class="options-list">
@@ -599,44 +600,52 @@ const recordMastery = async (level) => {
 }
 
 .content {
-  padding: 20px;
+  padding: 16px;
 }
 
 .word-card {
   background: white;
-  border-radius: 16px;
-  padding: 40px 20px;
+  border-radius: 12px;
+  padding: 24px 16px;
   text-align: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 16px;
 }
 
 .word-text {
-  font-size: 36px;
+  font-size: 32px;
   font-weight: 700;
   color: #2d3748;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .word-phonetic {
-  font-size: 18px;
+  font-size: 16px;
   color: #718096;
+}
+
+.word-definition-en {
+  font-size: 14px;
+  color: #a0aec0;
+  margin-top: 8px;
+  font-style: italic;
+  line-height: 1.4;
 }
 
 .options-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .option-btn {
   background: white;
   border: 2px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: 10px;
+  padding: 12px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   cursor: pointer;
   transition: all 0.2s;
   text-align: left;
@@ -658,8 +667,8 @@ const recordMastery = async (level) => {
 }
 
 .option-label {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: #667eea;
   color: white;
@@ -667,43 +676,44 @@ const recordMastery = async (level) => {
   align-items: center;
   justify-content: center;
   font-weight: 600;
+  font-size: 14px;
   flex-shrink: 0;
 }
 
 .option-text {
   flex: 1;
-  font-size: 16px;
+  font-size: 15px;
   color: #2d3748;
 }
 
 /* 掌握程度反馈（仿百词斩） */
 .mastery-feedback {
   background: linear-gradient(135deg, #f0fff4 0%, #e6fffa 100%);
-  border-radius: 12px;
-  padding: 16px;
-  margin-top: 16px;
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 12px;
   border: 2px solid #9ae6b4;
 }
 
 .mastery-title {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: #2d3748;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   text-align: center;
 }
 
 .mastery-buttons {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: 6px;
 }
 
 .mastery-btn {
-  padding: 12px;
+  padding: 10px;
   border: none;
-  border-radius: 8px;
-  font-size: 16px;
+  border-radius: 6px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -749,20 +759,20 @@ const recordMastery = async (level) => {
 }
 
 .hint-cn {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
   color: #2d3748;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .hint-en {
-  font-size: 16px;
+  font-size: 14px;
   color: #718096;
 }
 
 .spell-input {
   display: block;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .spell-input .btn {
@@ -775,13 +785,13 @@ const recordMastery = async (level) => {
   display: block;
   width: 100%;
   box-sizing: border-box;
-  padding: 16px;
-  font-size: 24px;
+  padding: 12px;
+  font-size: 20px;
   border: 2px solid #e2e8f0;
-  border-radius: 12px;
+  border-radius: 10px;
   text-align: center;
   font-weight: 600;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .input-word:focus {
@@ -791,21 +801,21 @@ const recordMastery = async (level) => {
 
 .result-feedback {
   background: white;
-  border-radius: 12px;
-  padding: 20px;
+  border-radius: 10px;
+  padding: 16px;
   text-align: center;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .feedback-icon {
-  font-size: 48px;
-  margin-bottom: 8px;
+  font-size: 40px;
+  margin-bottom: 6px;
 }
 
 .feedback-text {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .feedback-correct {
