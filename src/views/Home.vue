@@ -95,7 +95,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useWordBankStore } from '@/stores/wordbank'
 import { initNotifications, sendReviewReminder } from '@/utils/notification'
-import { Dialog } from 'vant'
+import { showConfirmDialog } from 'vant'
 import api from '@/api'
 
 const router = useRouter()
@@ -224,7 +224,7 @@ const goToImport = () => {
 
 // 退出登录
 const handleLogout = () => {
-  Dialog.confirm({
+  showConfirmDialog({
     title: '提示',
     message: '确定要退出登录吗？',
     confirmButtonText: '确定',
