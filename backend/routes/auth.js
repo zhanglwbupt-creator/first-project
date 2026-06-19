@@ -15,20 +15,35 @@ router.post('/register', (req, res) => {
       return res.status(400).json({ error: '用户名和密码不能为空' })
     }
 
+    // 验证用户名格式
+    if (username.length < 3) {
+      return res.status(400).json({ error: '用户名长度至少3个字符' })
+    }
+
+    if (username.length > 20) {
+      return res.status(400).json({ error: '用户名长度不能超过20个字符' })
+    }
+
+    // 验证密码长度
     if (password.length < 6) {
       return res.status(400).json({ error: '密码长度至少6位' })
     }
 
+    if (password.length > 50) {
+      return res.status(400).json({ error: '密码长度不能超过50位' })
+    }
+
     // 检查用户名是否已存在
     if (db.users.exists(username)) {
-      return res.status(400).json({ error: '用户名已存在' })
+      console.log('❌ 注册失败: 用户名已存在 -', username)
+      return res.status(400).json({ error: '用户名已存在，请选择其他用户名' })
     }
 
     // 创建用户
     const user = db.users.create(username, password, nickname, email)
     
     console.log('👤 创建用户成功:', user)
-    console.log('👤 user.id:', user?.id, 'user.username:', user?.username)
+    console.log(' user.id:', user?.id, 'user.username:', user?.username)
 
     // 生成JWT token
     const token = jwt.sign(
@@ -51,8 +66,11 @@ router.post('/register', (req, res) => {
       }
     })
   } catch (error) {
-    console.error('注册失败:', error)
-    res.status(500).json({ error: '注册失败' })
+    console.error('❌ 注册异常:', error.message)
+    res.status(500).json({ 
+      error: '注册失败: ' + (error.message || '系统内部错误'),
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    })
   }
 })
 
@@ -61,15 +79,24 @@ router.post('/login', (req, res) => {
   try {
     const { username, password } = req.body
 
+    // 验证必填字段
     if (!username || !password) {
       return res.status(400).json({ error: '用户名和密码不能为空' })
     }
 
-    // 验证用户
+    // 先检查用户是否存在
+    const userExists = db.users.exists(username)
+    if (!userExists) {
+      console.log('❌ 登录失败: 用户不存在 -', username)
+      return res.status(401).json({ error: '用户不存在，请先注册' })
+    }
+
+    // 验证用户密码
     const user = db.users.verify(username, password)
 
     if (!user) {
-      return res.status(401).json({ error: '用户名或密码错误' })
+      console.log('❌ 登录失败: 密码错误 -', username)
+      return res.status(401).json({ error: '密码错误，请重新输入' })
     }
 
     // 生成JWT token
@@ -78,6 +105,8 @@ router.post('/login', (req, res) => {
       JWT_SECRET,
       { expiresIn: '7d' }
     )
+
+    console.log('✅ 登录成功:', user.username)
 
     res.json({
       message: '登录成功',
@@ -90,8 +119,11 @@ router.post('/login', (req, res) => {
       }
     })
   } catch (error) {
-    console.error('登录失败:', error)
-    res.status(500).json({ error: '登录失败' })
+    console.error('❌ 登录异常:', error.message)
+    res.status(500).json({ 
+      error: '登录失败: ' + (error.message || '系统内部错误'),
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    })
   }
 })
 

@@ -2,7 +2,7 @@
   <div class="study-learn-page">
     <div class="gradient-header">
       <van-nav-bar
-        :title="mode === 'choice' ? '看词识意' : '拼写练习'"
+        :title="mode === 'choice' ? '看词识意' : mode === 'spell' ? '拼写练习' : '填空练习'"
         left-text="结束"
         @click-left="endStudy"
       />
@@ -210,6 +210,99 @@
         </div>
       </div>
 
+      <!-- 填空练习模式 -->
+      <div v-else-if="mode === 'fill_blank' && words.length > 0" class="fill-blank-mode">
+        <div class="sentence-card">
+          <div class="sentence-label">📖 Read the sentence and fill in the blank:</div>
+          <div v-if="currentWord.definition_en" class="definition-hint">
+            💡 Definition: {{ currentWord.definition_en }}
+          </div>
+          <div class="sentence-text">
+            {{ fillBlankSentence }}
+          </div>
+        </div>
+
+        <div class="input-section">
+          <input
+            v-model="userInput"
+            type="text"
+            class="fill-input"
+            placeholder="输入单词..."
+            :disabled="showResult"
+            @keyup.enter="submitFillBlank"
+          />
+          <button 
+            v-if="!showResult" 
+            class="btn btn-primary submit-btn" 
+            @click="submitFillBlank"
+            :disabled="!userInput.trim()"
+          >
+            提交答案
+          </button>
+        </div>
+
+        <div v-if="showResult" class="result-feedback">
+          <!-- 学习完成反馈 -->
+          <div v-if="currentIndex >= words.length - 1 && isCorrect && results.length > 0" class="feedback-completed">
+            <div class="feedback-icon">🎉</div>
+            <div class="feedback-text">本轮学习完成！</div>
+            <div class="feedback-subtitle">已完成 {{ results.length }} 个单词，正确 {{ results.filter(r => r.correct).length }} 个</div>
+            
+            <div class="completion-actions">
+              <button class="btn btn-primary" @click="endStudy">
+                查看学习报告
+              </button>
+              <button class="btn btn-continue-study" @click="continueStudy">
+                继续学习 →
+              </button>
+            </div>
+          </div>
+          
+          <div v-else-if="isCorrect" class="feedback-correct">
+            <div class="feedback-icon">✅</div>
+            <div class="feedback-text">回答正确！</div>
+          </div>
+          <div v-else class="feedback-wrong">
+            <div class="feedback-icon">❌</div>
+            <div class="feedback-text">正确答案</div>
+            
+            <!-- 详细解析卡片 -->
+            <div class="word-detail-card">
+              <div class="detail-word">{{ currentWord.word }}</div>
+              <div v-if="currentWord.phonetic" class="detail-phonetic">
+                {{ currentWord.phonetic }}
+                <button class="btn-audio" @click="playAudio"></button>
+              </div>
+              
+              <div class="detail-spell-compare">
+                <div class="spell-wrong">
+                  <div class="detail-label"> 你的答案</div>
+                  <div class="detail-content wrong-text">{{ userInput || '(未填写)' }}</div>
+                </div>
+                <div class="spell-correct">
+                  <div class="detail-label">✅ 正确答案</div>
+                  <div class="detail-content correct-text">{{ currentWord.word }}</div>
+                </div>
+              </div>
+              
+              <div v-if="currentWord.definition_en" class="detail-definition">
+                <div class="detail-label">📝 English Definition</div>
+                <div class="detail-content">{{ currentWord.definition_en }}</div>
+              </div>
+              
+              <div v-if="currentWord.example_sentence" class="detail-example">
+                <div class="detail-label">💬 完整例句</div>
+                <div class="detail-content">{{ currentWord.example_sentence }}</div>
+              </div>
+            </div>
+          </div>
+          
+          <button v-if="currentIndex < words.length - 1" class="btn btn-primary" @click="nextWord" style="margin-top: 16px;">
+            继续下一个 →
+          </button>
+        </div>
+      </div>
+
       <!-- 空状态 -->
       <div v-else class="empty-state">
         <div class="empty-icon">🎉</div>
@@ -252,6 +345,21 @@ const currentWord = computed(() => {
 const progress = computed(() => {
   if (words.value.length === 0) return 0
   return ((currentIndex.value + 1) / words.value.length) * 100
+})
+
+// 填空练习：生成带下划线的句子
+const fillBlankSentence = computed(() => {
+  const example = currentWord.value.example_sentence || ''
+  const word = currentWord.value.word || ''
+  
+  if (!example || !word) {
+    // 如果没有例句，显示提示信息
+    return 'No example sentence available. Please check the definition above.'
+  }
+  
+  // 将例句中的单词替换为下划线（不区分大小写）
+  const regex = new RegExp(`\\b${word}\\b`, 'gi')
+  return example.replace(regex, '______')
 })
 
 const options = ref([])
@@ -407,6 +515,36 @@ const checkSpell = async () => {
       masteryLevel: 0
     })
   }
+}
+
+// 提交填空答案
+const submitFillBlank = async () => {
+  if (!userInput.value.trim()) return
+  
+  showResult.value = true
+  const userAnswer = userInput.value.trim().toLowerCase()
+  const correctAnswer = currentWord.value.word.toLowerCase()
+  isCorrect.value = userAnswer === correctAnswer
+  
+  if (isCorrect.value) {
+    playCorrectSound()
+  } else {
+    playWrongSound()
+  }
+  
+  await api.post('/api/study/record', {
+    bankId: bankId.value,
+    wordId: currentWord.value.id,
+    studyType: 'learn',
+    studyMode: 'fill_blank',
+    correct: isCorrect.value,
+    masteryLevel: isCorrect.value ? 2 : 0
+  })
+  
+  results.value.push({
+    word: currentWord.value.word,
+    correct: isCorrect.value
+  })
 }
 
 const nextWord = async () => {
@@ -1230,5 +1368,66 @@ const recordMastery = async (level) => {
   gap: 12px;
   max-width: 300px;
   margin: 0 auto;
+}
+
+/* 填空练习模式 */
+.fill-blank-mode {
+  padding: 20px;
+}
+
+.sentence-card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.sentence-label {
+  font-size: 14px;
+  color: #718096;
+  margin-bottom: 12px;
+}
+
+.definition-hint {
+  background: #f7fafc;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #4a5568;
+}
+
+.sentence-text {
+  font-size: 20px;
+  line-height: 1.8;
+  color: #2d3748;
+  font-weight: 500;
+}
+
+.input-section {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.fill-input {
+  flex: 1;
+  padding: 14px 18px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 16px;
+  transition: all 0.3s;
+}
+
+.fill-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.submit-btn {
+  padding: 14px 24px;
+  white-space: nowrap;
 }
 </style>

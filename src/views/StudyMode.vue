@@ -52,6 +52,15 @@
           <div class="mode-arrow">→</div>
         </div>
 
+        <div class="mode-card" @click="startLearn('fill_blank')">
+          <div class="mode-icon">📝</div>
+          <div class="mode-info">
+            <div class="mode-title">填空练习</div>
+            <div class="mode-desc">显示例句，填入正确单词</div>
+          </div>
+          <div class="mode-arrow">→</div>
+        </div>
+
         <div class="mode-card review-card" @click="startReview">
           <div class="mode-icon">🔄</div>
           <div class="mode-info">
